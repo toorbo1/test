@@ -10416,24 +10416,131 @@ window.createPromoCode = createPromoCode;
 window.activatePromoCode = activatePromoCode;
 window.deactivatePromoCode = deactivatePromoCode;
         // Открыть модальное окно проверки задания
-        function openVerificationModal(verification) {
-            currentVerificationId = verification.id;
+function openVerificationModal(verification) {
+    currentVerificationId = verification.id;
 
-            document.getElementById('verification-user-avatar').textContent = 
-                verification.user_name ? verification.user_name.charAt(0).toUpperCase() : 'U';
-            document.getElementById('verification-user-name').textContent = verification.user_name;
-            document.getElementById('verification-task-title').textContent = verification.task_title;
-            document.getElementById('verification-task-price').textContent = verification.task_price + ' ⭐';
+    document.getElementById('verification-user-avatar').textContent = 
+        verification.user_name ? verification.user_name.charAt(0).toUpperCase() : 'U';
+    document.getElementById('verification-user-name').textContent = verification.user_name;
+    document.getElementById('verification-task-title').textContent = verification.task_title;
+    document.getElementById('verification-task-price').textContent = verification.task_price + ' ⭐';
+    
+    // Загрузка скриншота
+    const screenshotImg = document.getElementById('verification-screenshot');
+    screenshotImg.src = verification.screenshot_url;
+    screenshotImg.onerror = function() {
+        this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExYTNhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM4YjlkZGEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
+    };
+
+    // 🔥 ДОБАВЛЕНО: Кнопка удаления проверки
+    document.getElementById('verification-modal').innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✅ Проверка задания</div>
+                <button class="modal-close" onclick="closeModal('verification-modal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="verification-user-info">
+                    <div class="verification-avatar" id="verification-user-avatar">U</div>
+                    <div>
+                        <div class="verification-user-name" id="verification-user-name"></div>
+                        <div class="verification-task-title" id="verification-task-title"></div>
+                    </div>
+                    <div class="verification-price" id="verification-task-price">0 ⭐</div>
+                </div>
+                
+                <div class="verification-screenshot">
+                    <img id="verification-screenshot" alt="Скриншот задания" style="max-width: 100%; border-radius: 8px;">
+                </div>
+                
+                <div class="verification-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-success" style="flex: 1;" onclick="approveVerification()">
+                        ✅ Одобрить
+                    </button>
+                    <button class="btn btn-error" style="flex: 1;" onclick="rejectVerification()">
+                        ❌ Отклонить
+                    </button>
+                    <button class="btn btn-warning" style="flex: 1;" onclick="deleteVerification()">
+                        🗑️ Удалить проверку
+                    </button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: var(--bg-secondary); border-radius: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        <strong>🗑️ Удаление проверки:</strong> Задание вернется пользователю для повторной отправки скриншота
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Обновляем данные после изменения HTML
+    document.getElementById('verification-user-avatar').textContent = 
+        verification.user_name ? verification.user_name.charAt(0).toUpperCase() : 'U';
+    document.getElementById('verification-user-name').textContent = verification.user_name;
+    document.getElementById('verification-task-title').textContent = verification.task_title;
+    document.getElementById('verification-task-price').textContent = verification.task_price + ' ⭐';
+
+    document.getElementById('verification-modal').classList.add('active');
+}
+
+// 🗑️ ФУНКЦИЯ ДЛЯ УДАЛЕНИЯ ПРОВЕРКИ
+async function deleteVerification() {
+    if (!currentVerificationId) {
+        showNotification('❌ ID проверки не найден', 'error');
+        return;
+    }
+
+    if (!confirm('Вы уверены, что хотите удалить эту проверку?\n\nЗадание вернется пользователю для повторной отправки скриншота.')) {
+        return;
+    }
+
+    try {
+        console.log(`🗑️ Deleting verification:`, {
+            verificationId: currentVerificationId,
+            adminId: currentUser.id
+        });
+
+        const result = await makeRequest(`/api/admin/task-verifications/${currentVerificationId}/delete`, {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id
+            })
+        });
+
+        console.log('📨 Delete verification response:', result);
+
+        if (result.success) {
+            showNotification('✅ Проверка удалена! Задание возвращено пользователю.', 'success');
             
-            // Загрузка скриншота
-            const screenshotImg = document.getElementById('verification-screenshot');
-            screenshotImg.src = verification.screenshot_url;
-            screenshotImg.onerror = function() {
-                this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExYTNhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM4YjlkZGEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
-            };
-
-            document.getElementById('verification-modal').classList.add('active');
+            // Закрываем модальное окно
+            closeModal('verification-modal');
+            
+            // Обновляем списки
+            setTimeout(() => {
+                loadTaskVerifications();
+                console.log('✅ Списки обновлены после удаления проверки');
+            }, 500);
+            
+        } else {
+            throw new Error(result.error || 'Неизвестная ошибка сервера');
         }
+
+    } catch (error) {
+        console.error('❌ Delete verification error:', error);
+        
+        let errorMessage = 'Ошибка при удалении проверки';
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage = '❌ Проблема с соединением. Проверьте интернет.';
+        } else if (error.message.includes('404')) {
+            errorMessage = '❌ Проверка не найдена.';
+        } else if (error.message.includes('403')) {
+            errorMessage = '❌ Доступ запрещен.';
+        }
+        
+        showNotification(errorMessage, 'error');
+    }
+}
 
 // 🔧 ИСПРАВЛЕННАЯ ФУНКЦИЯ ОДОБРЕНИЯ ЗАДАНИЯ
 // 🔧 ИСПРАВЛЕННАЯ ФУНКЦИЯ ОДОБРЕНИЯ ЗАДАНИЯ
@@ -14841,6 +14948,9 @@ window.updateAdminPermissions = updateAdminPermissions;
 window.loadWithdrawalRequests = loadWithdrawalRequests;
 window.completeWithdrawal = completeWithdrawal;
 window.showAdminPaymentsSection = showAdminPaymentsSection;
+
+// 🔧 ЭКСПОРТ НОВЫХ ФУНКЦИЙ
+window.deleteVerification = deleteVerification;
 </script>
 </body>
 </html>

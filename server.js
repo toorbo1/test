@@ -4536,8 +4536,7 @@ app.get('/api/admin/debug-rights', async (req, res) => {
     }
 });
 // Подтверждение задания для ВСЕХ админов - ОБНОВЛЕННАЯ ВЕРСИЯ С УДАЛЕНИЕМ ФАЙЛОВ
-// 🔧 ИСПРАВЛЕННЫЙ ENDPOINT ДЛЯ ОДОБРЕНИЯ ЗАДАНИЯ
-// 🔧 УПРОЩЕННЫЙ ENDPOINT ДЛЯ ОДОБРЕНИЯ ЗАДАНИЯ
+// 🔧 ИСПРАВЛЕННЫЙ ENDPOINT ДЛЯ ОДОБРЕНИЯ ЗАДАНИЯ БЕЗ УДАЛЕНИЯ ФАЙЛОВ
 app.post('/api/admin/task-verifications/:verificationId/approve', async (req, res) => {
     const verificationId = req.params.verificationId;
     const { adminId } = req.body;
@@ -4651,6 +4650,66 @@ app.post('/api/admin/task-verifications/:verificationId/approve', async (req, re
         });
     }
 });
+
+
+// 🗑️ РУЧНОЕ УДАЛЕНИЕ ПРОВЕРКИ ЗАДАНИЯ
+app.post('/api/admin/task-verifications/:verificationId/delete', async (req, res) => {
+    const verificationId = req.params.verificationId;
+    const { adminId } = req.body;
+    
+    console.log('🗑️ Ручное удаление проверки задания:', { verificationId, adminId });
+    
+    // Проверка прав администратора
+    const isAdmin = await checkAdminAccess(adminId);
+    if (!isAdmin) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен. Только администраторы могут удалять проверки.'
+        });
+    }
+    
+    try {
+        // Получаем информацию о проверке
+        const verification = await pool.query(
+            'SELECT * FROM task_verifications WHERE id = $1', 
+            [verificationId]
+        );
+        
+        if (verification.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Проверка не найдена'
+            });
+        }
+
+        const verificationData = verification.rows[0];
+        
+        // Удаляем запись проверки
+        await pool.query('DELETE FROM task_verifications WHERE id = $1', [verificationId]);
+        
+        // Обновляем статус user_task обратно на 'active'
+        await pool.query(`
+            UPDATE user_tasks 
+            SET status = 'active', submitted_at = NULL, screenshot_url = NULL
+            WHERE id = $1
+        `, [verificationData.user_task_id]);
+        
+        console.log(`✅ Проверка ${verificationId} удалена, задание возвращено в активные`);
+        
+        res.json({
+            success: true,
+            message: 'Проверка успешно удалена, задание возвращено пользователю для повторной отправки'
+        });
+        
+    } catch (error) {
+        console.error('Delete verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
 
 // Отклонение задания для ВСЕХ админов - ОБНОВЛЕННАЯ ВЕРСИЯ С УДАЛЕНИЕМ ФАЙЛОВ
 app.post('/api/admin/task-verifications/:verificationId/reject', async (req, res) => {
