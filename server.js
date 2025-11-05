@@ -21,7 +21,7 @@ if (BOT_TOKEN) {
     bot = new TelegramBot(BOT_TOKEN, { polling: true });
     console.log('🤖 Telegram Bot initialized');
 } else {
-    console.log('⚠️ BOT_TOKEN not set - Telegram features disabled');
+    console.log(' ⚠️ BOT_TOKEN not set - Telegram features disabled');
 }
 
 // Используйте переменную окружения от Railway
