@@ -21,7 +21,7 @@ if (BOT_TOKEN) {
     bot = new TelegramBot(BOT_TOKEN, { polling: true });
     console.log('🤖 Telegram Bot initialized');
 } else {
-    console.log(' ⚠️ BOT_TOKEN not set - Telegram features disabled');
+    console.log('⚠️ BOT_TOKEN not set - Telegram features disabled');
 }
 
 // Используйте переменную окружения от Railway
@@ -81,6 +81,47 @@ const upload = multer({
     }
 });
 
+// Функция для отправки уведомления пользователю
+async function sendTaskNotification(userId, taskTitle, status, adminComment = '') {
+    if (!bot) {
+        console.log('⚠️ Bot not initialized, cannot send notification');
+        return false;
+    }
+
+    try {
+        let message = '';
+        
+        if (status === 'approved') {
+            message = `🎉 <b>Задание одобрено!</b>\n\n` +
+                     `Задание: "<b>${taskTitle}</b>"\n` +
+                     `✅ Статус: <b>Одобрено</b>\n` +
+                     `💫 Средства зачислены на ваш баланс!`;
+        } else if (status === 'rejected') {
+            message = `❌ <b>Задание отклонено</b>\n\n` +
+                     `Задание: "<b>${taskTitle}</b>"\n` +
+                     `📝 Статус: <b>Отклонено</b>\n` +
+                     `💡 Вы можете взять другое задание`;
+            
+            if (adminComment) {
+                message += `\n\n📋 <b>Комментарий администратора:</b>\n${adminComment}`;
+            }
+        }
+
+        await bot.sendMessage(userId, message, { parse_mode: 'HTML' });
+        console.log(`✅ Уведомление отправлено пользователю ${userId} о статусе задания "${taskTitle}"`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Ошибка отправки уведомления пользователю ${userId}:`, error.message);
+        
+        // Если пользователь заблокировал бота, пропускаем ошибку
+        if (error.response && error.response.statusCode === 403) {
+            console.log(`🚫 Пользователь ${userId} заблокировал бота`);
+            return false;
+        }
+        
+        return false;
+    }
+}
 
 async function checkAdminAccess(userId) {
     try {
@@ -178,22 +219,71 @@ async function fixPromocodesTable() {
         console.error('❌ Error fixing promocodes table:', error);
     }
 }
-// Упрощенная инициализация базы данных
 async function initDatabase() {
     try {
         console.log('🔄 Initializing simplified database...');
-// Таблица для лога уведомлений
-// Таблица для лога уведомлений
+
 await pool.query(`
-    CREATE TABLE IF NOT EXISTS admin_notifications (
+CREATE TABLE IF NOT EXISTS referral_links 
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(20) UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by BIGINT NOT NULL,
+    referral_url TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES user_profiles(user_id)
+)
+    `);
+await pool.query(`CREATE TABLE IF NOT EXISTS referral_link_clicks (
+    id SERIAL PRIMARY KEY,
+    link_id INTEGER NOT NULL,
+    user_id BIGINT,
+    ip_address TEXT,
+    user_agent TEXT,
+    clicked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (link_id) REFERENCES referral_links(id))
+`);
+// Таблица активаций реферальных ссылок
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS referral_activations (
         id SERIAL PRIMARY KEY,
-        admin_id BIGINT NOT NULL,
-        message TEXT NOT NULL,
-        sent_count INTEGER DEFAULT 0,
-        failed_count INTEGER DEFAULT 0,
-        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        link_id INTEGER NOT NULL,
+        user_id BIGINT NOT NULL,
+        activated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reward_amount REAL DEFAULT 0,
+        FOREIGN KEY (link_id) REFERENCES referral_links(id),
+        FOREIGN KEY (user_id) REFERENCES user_profiles(user_id)
     )
 `);
+
+// Таблица настроек админ-панели
+await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_settings (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        allow_admins_links BOOLEAN DEFAULT false,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Добавьте колонку для прав создания ссылок
+await pool.query(`
+    ALTER TABLE admin_permissions 
+    ADD COLUMN IF NOT EXISTS can_create_links BOOLEAN DEFAULT false
+`);
+        // Таблица для лога уведомлений
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS admin_notifications (
+                id SERIAL PRIMARY KEY,
+                admin_id BIGINT NOT NULL,
+                message TEXT NOT NULL,
+                sent_count INTEGER DEFAULT 0,
+                failed_count INTEGER DEFAULT 0,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Таблица пользователей
         await pool.query(`
             CREATE TABLE IF NOT EXISTS user_profiles (
@@ -233,7 +323,7 @@ await pool.query(`
                 people_required INTEGER DEFAULT 1,
                 repost_time TEXT DEFAULT '1 день',
                 task_url TEXT,
-                image_url TEXT, -- ДОБАВЛЕНА КОЛОНКА ДЛЯ ИЗОБРАЖЕНИЙ
+                image_url TEXT,
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -244,6 +334,7 @@ await pool.query(`
             ALTER TABLE tasks 
             ADD COLUMN IF NOT EXISTS image_url TEXT
         `);
+
         // Таблица запросов на вывод
         await pool.query(`
             CREATE TABLE IF NOT EXISTS withdrawal_requests (
@@ -300,6 +391,16 @@ await pool.query(`
             )
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS admin_actions (
+                id SERIAL PRIMARY KEY,
+                admin_id BIGINT NOT NULL,
+                action_type TEXT NOT NULL,
+                target_id INTEGER,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
         // Таблица проверки заданий
         await pool.query(`
             CREATE TABLE IF NOT EXISTS task_verifications (
@@ -318,8 +419,10 @@ await pool.query(`
                 reviewed_by BIGINT
             )
         `);
-         // В initDatabase() добавьте:
+
+        // В initDatabase() добавьте:
         await createPromocodesTable();
+
         // Таблица сообщений
         await pool.query(`
             CREATE TABLE IF NOT EXISTS support_messages (
@@ -366,19 +469,7 @@ await pool.query(`
             ADD COLUMN IF NOT EXISTS repost_time TEXT DEFAULT '1 день',
             ADD COLUMN IF NOT EXISTS task_url TEXT
         `);
-await pool.query(`
-            CREATE TABLE IF NOT EXISTS withdrawal_requests (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                username TEXT,
-                first_name TEXT,
-                amount REAL NOT NULL,
-                status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                completed_by BIGINT
-            )
-        `);
+
         // Добавляем колонку user_username в task_verifications если ее нет
         await pool.query(`
             ALTER TABLE task_verifications 
@@ -417,7 +508,38 @@ await pool.query(`
             `, [ADMIN_ID]);
             console.log('✅ Тестовые задания созданы');
         }
+// В функции initDatabase() добавьте:
+async function addMissingUserColumns() {
+    try {
+        console.log('🔧 Adding missing columns to user_profiles...');
+        
+        const columnsToAdd = [
+            'is_blocked BOOLEAN DEFAULT false',
+            'tasks_completed INTEGER DEFAULT 0',
+            'last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        ];
+        
+        for (const columnDef of columnsToAdd) {
+            const columnName = columnDef.split(' ')[0];
+            try {
+                await pool.query(`
+                    ALTER TABLE user_profiles 
+                    ADD COLUMN IF NOT EXISTS ${columnDef}
+                `);
+                console.log(`✅ Added column: ${columnName}`);
+            } catch (error) {
+                console.log(`ℹ️ Column ${columnName} already exists:`, error.message);
+            }
+        }
+        
+        console.log('✅ User table structure verified');
+    } catch (error) {
+        console.error('❌ Error adding user columns:', error);
+    }
+}
 
+// Вызовите эту функцию в initDatabase()
+await addMissingUserColumns();
         // Создаем тестовый пост если нет постов
         const postsCount = await pool.query('SELECT COUNT(*) FROM posts');
         if (parseInt(postsCount.rows[0].count) === 0) {
@@ -427,13 +549,7 @@ await pool.query(`
             `, [ADMIN_ID]);
         }
 
-        // Гарантируем создание таблиц промокодов
-        await createPromocodesTable();
-       async function initDatabase() {
-    try {
-        console.log('🔄 Initializing simplified database...');
-        
-        // ВРЕМЕННОЕ РЕШЕНИЕ - вставьте этот код вместо вызова fixPromocodesTable
+        // ВРЕМЕННОЕ РЕШЕНИЕ - проверяем таблицу промокодов
         try {
             console.log('🔧 Checking promocodes table...');
             await pool.query(`
@@ -453,20 +569,12 @@ await pool.query(`
         } catch (error) {
             console.log('⚠️ Promocodes table check:', error.message);
         }
-        // КОНЕЦ ВРЕМЕННОГО РЕШЕНИЯ
         
         console.log('✅ Database initialized successfully');
     } catch (error) {
         console.error('❌ Database initialization error:', error);
     }
 }
-        
-        console.log('✅ Database initialized successfully');
-    } catch (error) {
-        console.error('❌ Database initialization error:', error);
-    }
-}
-
 async function createPromocodesTable() {
     try {
         console.log('🔧 Creating/verifying promocodes table...');
@@ -496,6 +604,7 @@ async function createPromocodesTable() {
                 FOREIGN KEY (promocode_id) REFERENCES promocodes(id)
             )
         `);
+        
         
         // Проверяем и добавляем отсутствующие колонки
         const columnsToCheck = [
@@ -773,6 +882,7 @@ async function fixWithdrawalTable() {
 // Вызовите эту функцию при инициализации сервера
 fixWithdrawalTable();
 
+// 🔥 ПОЛНАЯ ОБРАБОТКА РЕФЕРАЛОВ ПРИ РЕГИСТРАЦИИ
 bot.onText(/\/start(.+)?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -781,7 +891,6 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
     console.log('🎯 Start command received:', { userId, referralCode });
     
     try {
-        // Регистрируем пользователя в системе
         const userData = {
             id: userId,
             firstName: msg.from.first_name || 'Пользователь',
@@ -791,31 +900,32 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
         
         let referredBy = null;
         let referrerName = '';
+        let referralBonusGiven = false;
         
-        // Если есть реферальный код, находим пригласившего
+        // 🔥 ОТСЛЕЖИВАЕМ КОНВЕРСИЮ ЕСЛИ ЕСТЬ РЕФЕРАЛЬНЫЙ КОД
         if (referralCode) {
-            const cleanReferralCode = referralCode.replace('ref_', '');
-            const referrerResult = await pool.query(
-                `SELECT user_id, first_name, username 
-                 FROM user_profiles 
-                 WHERE referral_code = $1 OR user_id::text = $1`,
-                [cleanReferralCode]
-            );
-            
-            if (referrerResult.rows.length > 0) {
-                referredBy = referrerResult.rows[0].user_id;
-                referrerName = referrerResult.rows[0].first_name || 
-                              referrerResult.rows[0].username || 
-                              `Пользователь ${referredBy}`;
+            try {
+                // Отправляем запрос на отслеживание конверсии
+                await fetch(`${APP_URL}/api/referral-links/track-conversion`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: referralCode,
+                        userId: userId
+                    })
+                });
                 
-                console.log(`🔍 Найден реферер: ${referrerName} (ID: ${referredBy})`);
+                console.log(`✅ Конверсия зарегистрирована для ссылки: ${referralCode}`);
+            } catch (trackError) {
+                console.log('⚠️ Ошибка отслеживания конверсии:', trackError.message);
             }
         }
-        
         // Генерируем реферальный код для пользователя
         const userReferralCode = `ref_${userId}`;
         
-        // Сохраняем/обновляем пользователя
+        // 🔥 СОХРАНЯЕМ/ОБНОВЛЯЕМ ПОЛЬЗОВАТЕЛЯ С РЕФЕРАЛЬНОЙ ИНФОРМАЦИЕЙ
         const userResult = await pool.query(`
             INSERT INTO user_profiles 
             (user_id, username, first_name, last_name, referral_code, referred_by, is_first_login) 
@@ -825,6 +935,8 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
                 username = EXCLUDED.username,
                 first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name,
+                referral_code = COALESCE(user_profiles.referral_code, EXCLUDED.referral_code),
+                referred_by = COALESCE(user_profiles.referred_by, EXCLUDED.referred_by),
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *
         `, [
@@ -838,92 +950,100 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
         
         const userProfile = userResult.rows[0];
         
-        // Если пользователь пришел по реферальной ссылке и это его первый вход
-        if (referredBy && userProfile.is_first_login) {
-            // 🔥 ИСПРАВЛЕНИЕ: Приглашенный получает 5 звезд, пригласивший получает 10 звезд
-            await pool.query(`
-                UPDATE user_profiles 
-                SET balance = COALESCE(balance, 0) + 5,
-                    is_first_login = false
-                WHERE user_id = $1
-            `, [userId]);
+        // 🔥 ЕСЛИ ЭТО ПЕРВЫЙ ВХОД И ПОЛЬЗОВАТЕЛЬ ПРИШЕЛ ПО РЕФЕРАЛЬНОЙ ССЫЛКЕ
+        if (userProfile.is_first_login && referredBy) {
+            console.log(`🎉 Начисляем реферальные бонусы за первую регистрацию`);
             
-            // Пригласивший получает 10 звезд
-            await pool.query(`
-                UPDATE user_profiles 
-                SET balance = COALESCE(balance, 0) + 10,
-                    referral_count = COALESCE(referral_count, 0) + 1,
-                    referral_earned = COALESCE(referral_earned, 0) + 10
-                WHERE user_id = $1
-            `, [referredBy]);
+            // Начинаем транзакцию для безопасного начисления бонусов
+            const client = await pool.connect();
             
-            console.log(`🎉 Реферальный бонус: пользователь ${userId} получил 5⭐, пригласивший ${referredBy} получил 10⭐`);
-            
-            // Отправляем уведомление приглашенному
-            await bot.sendMessage(
-                chatId,
-                `🎉 <b>Поздравляем, ${userData.firstName}!</b>\n\n` +
-                `Вы получили <b>5⭐</b> за регистрацию по приглашению от ${referrerName}!\n\n` +
-                `Теперь вы можете начать зарабатывать выполняя задания! 🚀`,
-                { parse_mode: 'HTML' }
-            );
-            
-            // Отправляем уведомление пригласившему
             try {
-                const referrerStats = await pool.query(
-                    'SELECT referral_count, referral_earned FROM user_profiles WHERE user_id = $1',
-                    [referredBy]
-                );
+                await client.query('BEGIN');
                 
-                const stats = referrerStats.rows[0];
+                    // 1. Даем 2 звезды новому пользователю за переход по ссылке
+    await client.query(`
+        UPDATE user_profiles 
+        SET balance = COALESCE(balance, 0) + 2,
+            is_first_login = false
+        WHERE user_id = $1
+    `, [userId]);
+    
+    // 2. Обновляем счетчик рефералов у пригласившего
+    await client.query(`
+        UPDATE user_profiles 
+        SET referral_count = COALESCE(referral_count, 0) + 1
+        WHERE user_id = $1
+    `, [referredBy]);
                 
-                await bot.sendMessage(
-                    referredBy,
-                    `🎊 <b>Отличная работа!</b>\n\n` +
-                    `Ваш друг ${userData.firstName} зарегистрировался по вашей ссылке!\n\n` +
-                    `💫 <b>Вы получили:</b> 10⭐\n` +
-                    `👥 <b>Всего приглашено:</b> ${(stats.referral_count || 0)} человек\n` +
-                    `💰 <b>Заработано на рефералах:</b> ${(stats.referral_earned || 0)}⭐\n\n` +
-                    `🔗 <b>Ваша реферальная ссылка:</b>\nhttps://t.me/LinkGoldMoney_bot?start=ref_${referredBy}`,
-                    {
-                        parse_mode: 'HTML'
+                await client.query('COMMIT');
+                
+                referralBonusGiven = true;
+                
+                console.log(`✅ Реферальный бонус: пользователь ${userId} получил 2⭐ за переход по ссылке`);
+                
+                // Отправляем уведомление пригласившему
+                if (bot) {
+                    try {
+                        await bot.sendMessage(
+                            referredBy,
+                            `🎉 <b>Новый реферал!</b>\n\n` +
+                            `Пользователь ${userData.firstName} (@${userData.username}) перешел по вашей ссылке!\n\n` +
+                            `👤 Реферал получил: <b>2⭐</b> за регистрацию\n` +
+                            `💫 Теперь вы будете получать 10% от всех его заработков! 🚀`,
+                            { parse_mode: 'HTML' }
+                        );
+                    } catch (botError) {
+                        console.log('Не удалось отправить уведомление рефереру:', botError.message);
                     }
-                );
-            } catch (error) {
-                console.log('Не удалось отправить уведомление рефереру:', error.message);
+                }
+                
+            } catch (transactionError) {
+                await client.query('ROLLBACK');
+                console.error('❌ Ошибка транзакции реферального бонуса:', transactionError);
+            } finally {
+                client.release();
             }
         }
         
-        // Отправляем основное сообщение с кнопками
-        const message = `👋 <b>Добро пожаловать в LinkGold, ${userData.firstName}!</b>\n\n` +
-                       `Мы создали этот сервис, чтобы каждый пользователь Telegram мог легко зарабатывать, помогая развиваться крутым проектам и каналам.
-
-
-Мы ценим твоё время и доверие, поэтому:
-<b>• Честная система:</b> Ты получаешь оплату за каждое успешно выполненное задание.
-<b>• Прозрачность:</b> Все условия задания четко описаны до его выполнения.
-<b>• Мы на связи:</b> Если возникнут вопросы, наша служба поддержки оперативно на них ответит.
-
-Присоединяйся к тысячам пользователей, которые уже зарабатывают с нами!
-
-
-Выбери задание и стань частью успеха! 🚀
-
-                       Выполняйте задания и зарабатывайте Telegram Stars! 🚀\n\n` +
-                       `🎁 <b>Реферальная программа:</b>\n` +
-                       `• Приглашайте друзей и получайте бонусы\n` +
-                       `• Друг получает 5⭐ за регистрацию\n` +
-                       `• Вы получаете 10⭐ за каждого приглашенного\n\n` +
-                       `🔗 <b>Ваша реферальная ссылка:</b>\nhttps://t.me/LinkGoldMoney_bot?start=${userReferralCode}`;
+        // 🔥 ОБНОВЛЯЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ ПОСЛЕ НАЧИСЛЕНИЯ БОНУСОВ
+        const updatedUser = await pool.query(
+            'SELECT * FROM user_profiles WHERE user_id = $1',
+            [userId]
+        );
         
+        const finalUserProfile = updatedUser.rows[0];
+        
+        // 🔥 ФОРМИРУЕМ ПРИВЕТСТВЕННОЕ СООБЩЕНИЕ
+        let welcomeMessage = `👋 <b>Добро пожаловать в LinkGold, ${userData.firstName}!</b>\n\n`;
+        
+        if (referralBonusGiven) {
+            welcomeMessage += `🎁 <b>Вы получили 2⭐ за регистрацию по реферальной ссылке!</b>\n`;
+            welcomeMessage += `💫 Ваш баланс: <b>${finalUserProfile.balance || 0}⭐</b>\n\n`;
+        }
+        
+        welcomeMessage += `🎯 <b>Как начать зарабатывать:</b>\n`;
+        welcomeMessage += `1. Выберите задание из списка\n`;
+        welcomeMessage += `2. Выполните его по инструкции\n`;
+        welcomeMessage += `3. Отправьте скриншот на проверку\n`;
+        welcomeMessage += `4. Получите оплату после одобрения\n\n`;
+        
+        welcomeMessage += `🎁 <b>Реферальная система:</b>\n`;
+        welcomeMessage += `• Вы получаете <b>90%</b> от своего заработка\n`;
+        welcomeMessage += `• Пригласивший получает <b>10%</b> от вашего заработка\n`;
+        welcomeMessage += `• Автоматически с каждого задания\n\n`;
+        
+        welcomeMessage += `🔗 <b>Ваша реферальная ссылка:</b>\n`;
+        welcomeMessage += `<code>https://t.me/LinkGoldMoney_bot?start=${userReferralCode}</code>`;
+        
+        // Отправляем сообщение пользователю
         await bot.sendMessage(
             chatId,
-            message,
+            welcomeMessage,
             {
                 parse_mode: 'HTML',
                 reply_markup: {
                     inline_keyboard: [
-                       [
+                        [
                             {
                                 text: '📢 Наш канал',
                                 url: 'https://t.me/LinkGoldChannel1'
@@ -932,7 +1052,17 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
                         [
                             {
                                 text: '👥 Поделиться с друзьями',
-                                url: `https://t.me/share/url?url=https://t.me/LinkGoldMoney_bot?start=${userReferralCode}&text=Присоединяйся к LinkGold и начинай зарабатывать Telegram Stars! 🚀`
+                                url: `https://t.me/share/url?url=https://t.me/LinkGoldMoney_bot?start=${userReferralCode}&text=Присоединяйся к LinkGold и начинай зарабатывать Telegram Stars! 🚀 Получи 2⭐ за регистрацию!`
+                            }
+                        ],
+                        [
+                            {
+                                text: '💰 Мой баланс',
+                                callback_data: 'balance'
+                            },
+                            {
+                                text: '👥 Рефералы', 
+                                callback_data: 'referral'
                             }
                         ]
                     ]
@@ -940,12 +1070,209 @@ bot.onText(/\/start(.+)?/, async (msg, match) => {
             }
         );
         
+        console.log(`✅ Пользователь ${userId} успешно зарегистрирован`, {
+            referredBy: referredBy,
+            bonusGiven: referralBonusGiven,
+            referralCode: userReferralCode
+        });
+        
     } catch (error) {
         console.error('❌ Start command error:', error);
-        await bot.sendMessage(chatId, '❌ Произошла ошибка при регистрации. Попробуйте позже.');
+        await bot.sendMessage(
+            chatId, 
+            '❌ Произошла ошибка при регистрации. Попробуйте позже.'
+        );
     }
 });
-
+app.post('/api/user/auth', async (req, res) => {
+    const { user, referralCode } = req.body;
+    
+    if (!user) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required fields'
+        });
+    }
+    
+    try {
+        const isMainAdmin = parseInt(user.id) === ADMIN_ID;
+        
+        // Генерируем реферальный код для пользователя
+        const userReferralCode = `ref_${user.id}_${Date.now()}`;
+        
+    let referredBy = null;
+    
+    // 🔥 ВАЖНО: Сохраняем реферальный код если он есть
+    if (referralCode) {
+        const cleanReferralCode = referralCode.replace('ref_', '');
+        const referrerResult = await pool.query(
+            'SELECT user_id FROM user_profiles WHERE referral_code = $1',
+            [cleanReferralCode]
+        );
+        
+        if (referrerResult.rows.length > 0) {
+            referredBy = referrerResult.rows[0].user_id;
+            console.log(`🎯 Пользователь пришел по реферальной ссылки от: ${referredBy}`);
+        }
+    }
+        
+        const result = await pool.query(`
+            INSERT INTO user_profiles 
+            (user_id, username, first_name, last_name, photo_url, is_admin, referral_code, referred_by, is_first_login) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+            ON CONFLICT (user_id) 
+            DO UPDATE SET 
+                username = EXCLUDED.username,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                photo_url = EXCLUDED.photo_url,
+                is_admin = COALESCE(user_profiles.is_admin, EXCLUDED.is_admin),
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *
+        `, [
+            user.id, 
+            user.username || `user_${user.id}`,
+            user.first_name || 'Пользователь',
+            user.last_name || '',
+            user.photo_url || '',
+            isMainAdmin,
+            userReferralCode,
+            referredBy
+        ]);
+        
+        const userProfile = result.rows[0];
+        
+        // 🔥 ЕСЛИ ЭТО ПЕРВЫЙ ВХОД И ЕСТЬ РЕФЕРАЛ
+        if (userProfile.is_first_login && referredBy) {
+            // Даем 2 звезды новому пользователю за переход по ссылке
+            await pool.query(`
+                UPDATE user_profiles 
+                SET balance = COALESCE(balance, 0) + 2,
+                    is_first_login = false
+                WHERE user_id = $1
+            `, [user.id]);
+            
+            // Обновляем счетчик рефералов у пригласившего
+            await pool.query(`
+                UPDATE user_profiles 
+                SET referral_count = COALESCE(referral_count, 0) + 1
+                WHERE user_id = $1
+            `, [referredBy]);
+            
+            referralBonusGiven = true;
+            
+            console.log(`🎉 Web реферальный бонус: пользователь ${user.id} получил 2⭐ за переход по ссылке`);
+        }
+        
+        // Обновляем данные пользователя после начисления бонусов
+        const updatedUser = await pool.query(
+            'SELECT * FROM user_profiles WHERE user_id = $1',
+            [user.id]
+        );
+        
+        res.json({
+            success: true,
+            user: updatedUser.rows[0],
+            referralBonusGiven: referralBonusGiven
+        });
+    } catch (error) {
+        console.error('Auth error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+app.get('/api/debug/referral-system', async (req, res) => {
+    try {
+        // Проверяем настройки реферальной системы
+        const referralStats = await pool.query(`
+            SELECT 
+                COUNT(*) as total_users,
+                COUNT(CASE WHEN referred_by IS NOT NULL THEN 1 END) as referred_users,
+                COUNT(CASE WHEN balance >= 2 AND referred_by IS NOT NULL THEN 1 END) as users_with_bonus,
+                SUM(CASE WHEN referred_by IS NOT NULL THEN balance ELSE 0 END) as total_referral_balance,
+                AVG(CASE WHEN referred_by IS NOT NULL THEN balance ELSE 0 END) as avg_referral_balance
+            FROM user_profiles
+        `);
+        
+        // Проверяем последние реферальные начисления
+        const recentReferrals = await pool.query(`
+            SELECT up.user_id, up.balance, up.created_at, 
+                   ref.username as referrer_username
+            FROM user_profiles up
+            LEFT JOIN user_profiles ref ON up.referred_by = ref.user_id
+            WHERE up.referred_by IS NOT NULL
+            ORDER BY up.created_at DESC
+            LIMIT 10
+        `);
+        
+        res.json({
+            success: true,
+            stats: referralStats.rows[0],
+            recentReferrals: recentReferrals.rows,
+            system: {
+                bonus_for_new_user: "2⭐",
+                income_distribution: "90% user / 10% referrer",
+                timestamp: new Date().toISOString()
+            }
+        });
+        
+    } catch (error) {
+        console.error('Referral system debug error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+// Проверка реферальных данных пользователя
+app.get('/api/user/:userId/referral-info', async (req, res) => {
+    const userId = req.params.userId;
+    
+    try {
+        const result = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.referred_by,
+                up.referral_earned,
+                ref.username as referrer_username,
+                ref.first_name as referrer_name
+            FROM user_profiles up
+            LEFT JOIN user_profiles ref ON up.referred_by = ref.user_id
+            WHERE up.user_id = $1
+        `, [userId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+        
+        const user = result.rows[0];
+        
+        res.json({
+            success: true,
+            user: user,
+            hasReferrer: !!user.referred_by,
+            referrerInfo: user.referred_by ? {
+                id: user.referred_by,
+                username: user.referrer_username,
+                name: user.referrer_name
+            } : null
+        });
+        
+    } catch (error) {
+        console.error('Get referral info error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error'
+        });
+    }
+});
 
 // Тестовая команда для проверки отправки уведомлений
 bot.onText(/\/testnotify/, async (msg) => {
@@ -1150,7 +1477,74 @@ if (bot) {
         console.error('❌ Bot webhook error:', error);
     });
 }
-
+// Получение детальной статистики по ссылке
+app.get('/api/admin/links/:linkId/stats', async (req, res) => {
+    const { linkId } = req.params;
+    const { adminId } = req.query;
+    
+    try {
+        // Проверка прав администратора
+        const isAdmin = await checkAdminAccess(adminId);
+        if (!isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен'
+            });
+        }
+        
+        // Основная статистика ссылки
+        const linkStats = await pool.query(`
+            SELECT * FROM referral_links WHERE id = $1
+        `, [linkId]);
+        
+        if (linkStats.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Ссылка не найдена'
+            });
+        }
+        
+        // Статистика по дням
+        const dailyStats = await pool.query(`
+            SELECT 
+                DATE(clicked_at) as date,
+                COUNT(*) as total_clicks,
+                COUNT(DISTINCT ip_address) as unique_clicks
+            FROM referral_link_clicks 
+            WHERE link_id = $1 
+            GROUP BY DATE(clicked_at)
+            ORDER BY date DESC
+            LIMIT 30
+        `, [linkId]);
+        
+        // Последние клики
+        const recentClicks = await pool.query(`
+            SELECT 
+                rlc.*,
+                up.username,
+                up.first_name
+            FROM referral_link_clicks rlc
+            LEFT JOIN user_profiles up ON rlc.user_id = up.user_id
+            WHERE rlc.link_id = $1
+            ORDER BY rlc.clicked_at DESC
+            LIMIT 20
+        `, [linkId]);
+        
+        res.json({
+            success: true,
+            link: linkStats.rows[0],
+            dailyStats: dailyStats.rows,
+            recentClicks: recentClicks.rows
+        });
+        
+    } catch (error) {
+        console.error('Get link stats error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
 // Получение истории отправленных уведомлений
 app.get('/api/admin/notification-history', async (req, res) => {
     const { adminId } = req.query;
@@ -1316,6 +1710,961 @@ bot.onText(/\/stats/, async (msg) => {
         );
     }
 });
+
+// Команда для поиска пользователей по юзернейму
+bot.onText(/\/search_user (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const searchUsername = match[1].trim();
+    
+    console.log('🔍 Search user command:', { userId, searchUsername });
+    
+    // Проверяем права администратора
+    const isAdmin = await checkAdminAccess(userId);
+    if (!isAdmin) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ У вас нет прав для поиска пользователей.'
+        );
+    }
+    
+    try {
+        // Ищем пользователя по юзернейму
+        const userResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.last_name,
+                up.balance,
+                up.is_admin,
+                up.created_at,
+                up.referral_count,
+                up.referral_earned,
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            WHERE up.username ILIKE $1 OR up.user_id::text = $1
+            GROUP BY up.user_id
+            LIMIT 1
+        `, [`%${searchUsername}%`]);
+        
+        if (userResult.rows.length === 0) {
+            return await bot.sendMessage(
+                chatId,
+                `❌ Пользователь с юзернеймом "${searchUsername}" не найден.`
+            );
+        }
+        
+        const user = userResult.rows[0];
+        await sendUserInfo(chatId, user);
+        
+    } catch (error) {
+        console.error('Search user error:', error);
+        await bot.sendMessage(
+            chatId,
+            '❌ Произошла ошибка при поиске пользователя.'
+        );
+    }
+});
+
+// Команда для поиска по ID пользователя
+bot.onText(/\/user (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const searchId = match[1].trim();
+    
+    // Проверяем права администратора
+    const isAdmin = await checkAdminAccess(userId);
+    if (!isAdmin) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ У вас нет прав для поиска пользователей.'
+        );
+    }
+    
+    try {
+        const userResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.last_name,
+                up.balance,
+                up.is_admin,
+                up.created_at,
+                up.referral_count,
+                up.referral_earned,
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            WHERE up.user_id = $1
+            GROUP BY up.user_id
+        `, [searchId]);
+        
+        if (userResult.rows.length === 0) {
+            return await bot.sendMessage(
+                chatId,
+                `❌ Пользователь с ID "${searchId}" не найден.`
+            );
+        }
+        
+        const user = userResult.rows[0];
+        await sendUserInfo(chatId, user);
+        
+    } catch (error) {
+        console.error('User search error:', error);
+        await bot.sendMessage(
+            chatId,
+            '❌ Произошла ошибка при поиске пользователя.'
+        );
+    }
+});
+// 🔍 ПОИСК ПОЛЬЗОВАТЕЛЕЙ ПО ЮЗЕРНЕЙМУ - УЛУЧШЕННАЯ ВЕРСИЯ
+bot.onText(/\/search (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const searchQuery = match[1].trim();
+    
+    console.log('🔍 Search command received:', { userId, searchQuery });
+    
+    // Проверяем права администратора
+    const isAdmin = await checkAdminAccess(userId);
+    if (!isAdmin) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ У вас нет прав для поиска пользователей.'
+        );
+    }
+    
+    try {
+        // Ищем пользователя по юзернейму или ID
+        const userResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.last_name,
+                up.balance,
+                up.is_admin,
+                up.created_at,
+                up.referral_count,
+                up.referral_earned,
+                -- Статистика заданий
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks,
+                -- Статистика выплат
+                COUNT(wr.id) as withdrawal_requests,
+                COUNT(CASE WHEN wr.status = 'completed' THEN 1 END) as completed_withdrawals,
+                COALESCE(SUM(CASE WHEN wr.status = 'completed' THEN wr.amount ELSE 0 END), 0) as total_withdrawn,
+                -- Информация о реферере
+                ref.username as referrer_username,
+                ref.first_name as referrer_name
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            LEFT JOIN withdrawal_requests wr ON up.user_id = wr.user_id
+            LEFT JOIN user_profiles ref ON up.referred_by = ref.user_id
+            WHERE up.username ILIKE $1 OR up.user_id::text = $1 OR up.first_name ILIKE $1
+            GROUP BY up.user_id, ref.username, ref.first_name
+            ORDER BY 
+                CASE 
+                    WHEN up.username = $1 THEN 1
+                    WHEN up.user_id::text = $1 THEN 2
+                    ELSE 3
+                END,
+                up.created_at DESC
+            LIMIT 10
+        `, [`%${searchQuery}%`]);
+        
+        if (userResult.rows.length === 0) {
+            return await bot.sendMessage(
+                chatId,
+                `❌ Пользователи по запросу "${searchQuery}" не найдены.\n\nПопробуйте:\n• Юзернейм (без @)\n• ID пользователя\n• Имя`
+            );
+        }
+        
+        if (userResult.rows.length === 1) {
+            // Если найден один пользователь - показываем детальную информацию
+            const user = userResult.rows[0];
+            await sendUserManagementPanel(chatId, user);
+        } else {
+            // Если найдено несколько пользователей - показываем список
+            await sendUsersList(chatId, userResult.rows, searchQuery);
+        }
+        
+    } catch (error) {
+        console.error('❌ Search users error:', error);
+        await bot.sendMessage(
+            chatId,
+            '❌ Произошла ошибка при поиске пользователей.'
+        );
+    }
+});
+
+// 📋 ОТПРАВКА СПИСКА ПОЛЬЗОВАТЕЛЕЙ
+async function sendUsersList(chatId, users, searchQuery) {
+    let messageText = `🔍 <b>Найдено пользователей: ${users.length}</b>\n\n`;
+    
+    users.forEach((user, index) => {
+        const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : '');
+        const userStatus = user.is_admin ? '👑' : '👤';
+        const balance = user.balance || 0;
+        
+        messageText += `${index + 1}. ${userStatus} <b>${userName}</b>\n`;
+        messageText += `   👤 @${user.username || 'нет юзернейма'}\n`;
+        messageText += `   🆔 <code>${user.user_id}</code>\n`;
+        messageText += `   💫 Баланс: <b>${balance}⭐</b>\n`;
+        messageText += `   📅 Регистрация: ${new Date(user.created_at).toLocaleDateString('ru-RU')}\n\n`;
+    });
+    
+    messageText += `💡 <b>Выберите пользователя для управления:</b>`;
+    
+    const keyboard = {
+        inline_keyboard: users.map(user => [
+            {
+                text: `${user.first_name} (@${user.username || user.user_id})`,
+                callback_data: `manage_user_${user.user_id}`
+            }
+        ])
+    };
+    
+    // Добавляем кнопку "Новый поиск"
+    keyboard.inline_keyboard.push([
+        {
+            text: '🔍 Новый поиск',
+            callback_data: 'new_search'
+        }
+    ]);
+    
+    await bot.sendMessage(
+        chatId,
+        messageText,
+        {
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+        }
+    );
+}
+
+// 🎛️ ПАНЕЛЬ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЕМ
+async function sendUserManagementPanel(chatId, user) {
+    const userName = user.first_name + (user.last_name ? ` ${user.last_name}` : '');
+    const userStatus = user.is_admin ? '👑 Администратор' : '👤 Пользователь';
+    const registrationDate = new Date(user.created_at).toLocaleDateString('ru-RU');
+    const totalEarned = (user.balance || 0) + (user.total_withdrawn || 0);
+    
+    const messageText = `
+👤 <b>ПАНЕЛЬ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЕМ</b>
+
+<b>Основная информация:</b>
+🆔 ID: <code>${user.user_id}</code>
+👤 Имя: <b>${userName}</b>
+📧 Юзернейм: @${user.username || 'не указан'}
+🎭 Статус: ${userStatus}
+📅 Регистрация: ${registrationDate}
+
+💰 <b>Финансы:</b>
+💫 Текущий баланс: <b>${user.balance || 0}⭐</b>
+🏦 Всего выведено: <b>${user.total_withdrawn || 0}⭐</b>
+💸 Всего заработано: <b>${totalEarned}⭐</b>
+
+📊 <b>Статистика заданий:</b>
+✅ Выполнено: <b>${user.completed_tasks || 0}</b>
+❌ Отклонено: <b>${user.rejected_tasks || 0}</b>
+⏳ На проверке: <b>${user.pending_tasks || 0}</b>
+📋 Всего заданий: <b>${user.total_tasks || 0}</b>
+
+👥 <b>Реферальная система:</b>
+👤 Приглашено: <b>${user.referral_count || 0} чел.</b>
+💫 Заработано: <b>${user.referral_earned || 0}⭐</b>
+🎯 Пригласил: ${user.referrer_username ? `@${user.referrer_username}` : 'нет'}
+    `.trim();
+
+    const keyboard = {
+        inline_keyboard: [
+            // Первый ряд: Управление балансом
+            [
+                {
+                    text: '💰 Управление балансом',
+                    callback_data: `balance_menu_${user.user_id}`
+                },
+                {
+                    text: '🎭 Права доступа',
+                    callback_data: `admin_toggle_${user.user_id}`
+                }
+            ],
+            // Второй ряд: Статистика и действия
+            [
+                {
+                    text: '📊 Детальная статистика',
+                    callback_data: `user_stats_${user.user_id}`
+                },
+                {
+                    text: '🔄 Обновить',
+                    callback_data: `refresh_user_${user.user_id}`
+                }
+            ],
+            // Третий ряд: Блокировка и выплаты
+            [
+                {
+                    text: user.balance > 0 ? '💸 Выплаты' : '💸 История выплат',
+                    callback_data: `withdrawal_info_${user.user_id}`
+                },
+                {
+                    text: '🚫 Заблокировать',
+                    callback_data: `block_user_${user.user_id}`
+                }
+            ],
+            // Четвертый ряд: Навигация
+            [
+                {
+                    text: '🔍 Новый поиск',
+                    callback_data: 'new_search'
+                },
+                {
+                    text: '📋 Список пользователей',
+                    callback_data: 'users_list'
+                }
+            ]
+        ]
+    };
+
+    await bot.sendMessage(
+        chatId,
+        messageText,
+        {
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+        }
+    );
+}
+
+// 💰 МЕНЮ УПРАВЛЕНИЯ БАЛАНСОМ
+async function showBalanceManagement(chatId, adminId, targetUserId, messageId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT username, first_name, balance FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        const currentBalance = user.balance || 0;
+        
+        const messageText = `
+💰 <b>УПРАВЛЕНИЕ БАЛАНСОМ</b>
+
+👤 Пользователь: ${user.first_name} (@${user.username})
+💫 Текущий баланс: <b>${currentBalance}⭐</b>
+
+<b>Быстрые действия:</b>
+        `.trim();
+        
+        const keyboard = {
+            inline_keyboard: [
+                // Пополнение счета
+                [
+                    { text: '➕ 50⭐', callback_data: `balance_add_${targetUserId}_50` },
+                    { text: '➕ 100⭐', callback_data: `balance_add_${targetUserId}_100` },
+                    { text: '➕ 500⭐', callback_data: `balance_add_${targetUserId}_500` }
+                ],
+                // Списание средств
+                [
+                    { text: '➖ 50⭐', callback_data: `balance_remove_${targetUserId}_50` },
+                    { text: '➖ 100⭐', callback_data: `balance_remove_${targetUserId}_100` },
+                    { text: '➖ 500⭐', callback_data: `balance_remove_${targetUserId}_500` }
+                ],
+                // Специальные действия
+                [
+                    { text: '🎯 Указать сумму', callback_data: `balance_custom_${targetUserId}` },
+                    { text: '🔄 Сбросить баланс', callback_data: `balance_reset_${targetUserId}` },
+                    { text: '💸 Обнулить', callback_data: `balance_zero_${targetUserId}` }
+                ],
+                // Навигация
+                [
+                    { text: '🔙 Назад', callback_data: `manage_user_${targetUserId}` },
+                    { text: '📊 Статистика', callback_data: `user_stats_${targetUserId}` }
+                ]
+            ]
+        };
+        
+        if (messageId) {
+            await bot.editMessageText(
+                messageText,
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    parse_mode: 'HTML',
+                    reply_markup: keyboard
+                }
+            );
+        } else {
+            await bot.sendMessage(
+                chatId,
+                messageText,
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: keyboard
+                }
+            );
+        }
+        
+    } catch (error) {
+        console.error('Show balance management error:', error);
+        await bot.sendMessage(
+            chatId,
+            '❌ Ошибка при загрузке управления балансом'
+        );
+    }
+}
+
+// 🔄 ОБРАБОТКА ДЕЙСТВИЙ С БАЛАНСОМ
+async function handleBalanceAction(chatId, adminId, targetUserId, action, amount, messageId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT username, first_name, balance FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        let newBalance = user.balance || 0;
+        let actionText = '';
+        let notificationText = '';
+        
+        switch (action) {
+            case 'add':
+                newBalance += amount;
+                actionText = `пополнен на ${amount}⭐`;
+                notificationText = `🎉 Ваш баланс пополнен на ${amount}⭐ администратором!\n💫 Текущий баланс: ${newBalance}⭐`;
+                break;
+                
+            case 'remove':
+                if (newBalance >= amount) {
+                    newBalance -= amount;
+                    actionText = `списано ${amount}⭐`;
+                    notificationText = `ℹ️ С вашего баланса списано ${amount}⭐ администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                } else {
+                    newBalance = 0;
+                    actionText = `баланс сброшен (было недостаточно средств)`;
+                    notificationText = `ℹ️ Ваш баланс был сброшен администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                }
+                break;
+                
+            case 'reset':
+                actionText = `сброшен до 0⭐`;
+                newBalance = 0;
+                notificationText = `ℹ️ Ваш баланс был сброшен администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                break;
+                
+            case 'zero':
+                actionText = `обнулен`;
+                newBalance = 0;
+                notificationText = `ℹ️ Ваш баланс был обнулен администратором.`;
+                break;
+                
+            case 'custom':
+                // Обработка произвольной суммы через текстовый ввод
+                userBalanceState[adminId] = { targetUserId, action: 'custom' };
+                await bot.sendMessage(
+                    chatId,
+                    `💵 <b>Введите сумму для изменения баланса</b>\n\n` +
+                    `Пользователь: ${user.first_name} (@${user.username})\n` +
+                    `Текущий баланс: ${user.balance || 0}⭐\n\n` +
+                    `<b>Форматы ввода:</b>\n` +
+                    `<code>+100</code> - пополнить на 100⭐\n` +
+                    `<code>-50</code> - списать 50⭐\n` +
+                    `<code>=200</code> - установить баланс 200⭐\n` +
+                    `<code>0</code> - обнулить баланс`,
+                    { parse_mode: 'HTML' }
+                );
+                return;
+        }
+        
+        if (action !== 'custom') {
+            // Обновляем баланс в базе данных
+            await pool.query(
+                'UPDATE user_profiles SET balance = $1 WHERE user_id = $2',
+                [newBalance, targetUserId]
+            );
+            
+            // Логируем действие
+            await pool.query(`
+                INSERT INTO admin_actions (admin_id, action_type, target_id, description) 
+                VALUES ($1, $2, $3, $4)
+            `, [adminId, 'balance_update', targetUserId, 
+                `Баланс пользователя ${targetUserId} ${actionText}. Новый баланс: ${newBalance}⭐`]);
+            
+            // Обновляем сообщение
+            await bot.editMessageText(
+                `✅ <b>Баланс обновлен!</b>\n\n` +
+                `👤 Пользователь: ${user.first_name}\n` +
+                `💫 Действие: ${actionText}\n` +
+                `💰 Новый баланс: <b>${newBalance}⭐</b>`,
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '🔙 Назад к управлению', callback_data: `manage_user_${targetUserId}` },
+                                { text: '💰 Еще действия', callback_data: `balance_menu_${targetUserId}` }
+                            ]
+                        ]
+                    }
+                }
+            );
+            
+            // Уведомляем пользователя
+            if (bot && notificationText) {
+                try {
+                    await bot.sendMessage(targetUserId, notificationText);
+                } catch (error) {
+                    console.log('Не удалось отправить уведомление пользователю');
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Handle balance action error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при изменении баланса',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// 📊 ДЕТАЛЬНАЯ СТАТИСТИКА ПОЛЬЗОВАТЕЛЯ
+async function showUserDetailedStats(chatId, targetUserId, messageId) {
+    try {
+        const statsResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.balance,
+                up.created_at,
+                up.referral_count,
+                up.referral_earned,
+                up.referred_by,
+                -- Статистика по заданиям
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks,
+                COUNT(CASE WHEN ut.status = 'active' THEN 1 END) as active_tasks,
+                -- Статистика по выплатам
+                COUNT(wr.id) as withdrawal_requests,
+                COUNT(CASE WHEN wr.status = 'completed' THEN 1 END) as completed_withdrawals,
+                COUNT(CASE WHEN wr.status = 'pending' THEN 1 END) as pending_withdrawals,
+                COUNT(CASE WHEN wr.status = 'cancelled' THEN 1 END) as cancelled_withdrawals,
+                COALESCE(SUM(CASE WHEN wr.status = 'completed' THEN wr.amount ELSE 0 END), 0) as total_withdrawn,
+                -- Реферальная статистика
+                ref.username as referrer_username,
+                ref.first_name as referrer_name,
+                -- Последняя активность
+                MAX(ut.started_at) as last_task_activity,
+                MAX(wr.created_at) as last_withdrawal_date
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            LEFT JOIN withdrawal_requests wr ON up.user_id = wr.user_id
+            LEFT JOIN user_profiles ref ON up.referred_by = ref.user_id
+            WHERE up.user_id = $1
+            GROUP BY up.user_id, ref.username, ref.first_name
+        `, [targetUserId]);
+        
+        if (statsResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const stats = statsResult.rows[0];
+        const lastActivity = stats.last_task_activity ? 
+            new Date(stats.last_task_activity).toLocaleDateString('ru-RU') : 'нет активности';
+        const lastWithdrawal = stats.last_withdrawal_date ? 
+            new Date(stats.last_withdrawal_date).toLocaleDateString('ru-RU') : 'нет выплат';
+        
+        const messageText = `
+📊 <b>ДЕТАЛЬНАЯ СТАТИСТИКА ПОЛЬЗОВАТЕЛЯ</b>
+
+👤 <b>${stats.first_name}</b> (@${stats.username})
+💫 <b>Баланс:</b> ${stats.balance || 0}⭐
+📅 <b>Регистрация:</b> ${new Date(stats.created_at).toLocaleDateString('ru-RU')}
+🕒 <b>Последняя активность:</b> ${lastActivity}
+
+🎯 <b>ЗАДАНИЯ:</b>
+• Всего: ${stats.total_tasks || 0}
+• ✅ Выполнено: ${stats.completed_tasks || 0}
+• ❌ Отклонено: ${stats.rejected_tasks || 0}
+• ⏳ На проверке: ${stats.pending_tasks || 0}
+• 🔄 Активные: ${stats.active_tasks || 0}
+
+💳 <b>ВЫПЛАТЫ:</b>
+• 📨 Запросов: ${stats.withdrawal_requests || 0}
+• ✅ Выведено: ${stats.completed_withdrawals || 0}
+• ⏳ Ожидают: ${stats.pending_withdrawals || 0}
+• ❌ Отменено: ${stats.cancelled_withdrawals || 0}
+• 💰 Сумма: ${stats.total_withdrawn || 0}⭐
+• 📅 Последняя: ${lastWithdrawal}
+
+👥 <b>РЕФЕРАЛЫ:</b>
+• 👤 Приглашено: ${stats.referral_count || 0}
+• 💫 Заработано: ${stats.referral_earned || 0}⭐
+• 🎯 Пригласил: ${stats.referrer_username ? `@${stats.referrer_username}` : 'нет'}
+
+💰 <b>ОБЩАЯ СТАТИСТИКА:</b>
+• 💸 Всего заработано: ${(stats.balance || 0) + (stats.total_withdrawn || 0)}⭐
+• 📈 Эффективность: ${stats.total_tasks ? Math.round((stats.completed_tasks / stats.total_tasks) * 100) : 0}%
+        `.trim();
+        
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: '🔙 Назад', callback_data: `manage_user_${targetUserId}` },
+                    { text: '🔄 Обновить', callback_data: `refresh_stats_${targetUserId}` }
+                ],
+                [
+                    { text: '💰 Управление балансом', callback_data: `balance_menu_${targetUserId}` },
+                    { text: '📋 История операций', callback_data: `user_operations_${targetUserId}` }
+                ]
+            ]
+        };
+        
+        await bot.editMessageText(
+            messageText,
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: keyboard
+            }
+        );
+        
+    } catch (error) {
+        console.error('Show user stats error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при загрузке статистики',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+async function toggleUserBlock(chatId, adminId, targetUserId, messageId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT username, first_name, COALESCE(is_blocked, false) as is_blocked FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        const newBlockStatus = !user.is_blocked;
+        const actionText = newBlockStatus ? 'заблокирован' : 'разблокирован';
+        const emoji = newBlockStatus ? '🚫' : '✅';
+        
+        // Обновляем статус блокировки
+        await pool.query(
+            'UPDATE user_profiles SET is_blocked = $1 WHERE user_id = $2',
+            [newBlockStatus, targetUserId]
+        );
+        
+        // Логируем действие
+        await pool.query(`
+            INSERT INTO admin_actions (admin_id, action_type, target_id, description) 
+            VALUES ($1, $2, $3, $4)
+        `, [adminId, 'user_block', targetUserId, 
+            `Пользователь ${targetUserId} ${actionText}`]);
+        
+        await bot.editMessageText(
+            `${emoji} <b>Пользователь ${actionText}!</b>\n\n` +
+            `👤 ${user.first_name} (@${user.username})\n` +
+            `🆔 ID: <code>${targetUserId}</code>\n` +
+            `📊 Статус: ${newBlockStatus ? '🚫 Заблокирован' : '✅ Активен'}`,
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: '🔙 Назад', callback_data: `manage_user_${targetUserId}` },
+                            { text: '🔄 Обновить', callback_data: `refresh_user_${targetUserId}` }
+                        ]
+                    ]
+                }
+            }
+        );
+        
+        // Уведомляем пользователя
+        if (bot) {
+            try {
+                await bot.sendMessage(
+                    targetUserId,
+                    newBlockStatus ? 
+                    `🚫 <b>Ваш аккаунт заблокирован!</b>\n\n` +
+                    `Ваш аккаунт был заблокирован администратором. ` +
+                    `Для разблокировки обратитесь в поддержку.` :
+                    `✅ <b>Ваш аккаунт разблокирован!</b>\n\n` +
+                    `Ваш аккаунт был разблокирован администратором. ` +
+                    `Теперь вы снова можете пользоваться ботом.`,
+                    { parse_mode: 'HTML' }
+                );
+            } catch (error) {
+                console.log('Не удалось отправить уведомление пользователю');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Toggle user block error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при изменении статуса блокировки',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// 🔧 ОБНОВЛЕННЫЙ ОБРАБОТЧИК CALLBACK-ЗАПРОСОВ
+bot.on('callback_query', async (callbackQuery) => {
+    const message = callbackQuery.message;
+    const chatId = message.chat.id;
+    const userId = callbackQuery.from.id;
+    const data = callbackQuery.data;
+    
+    try {
+        // Управление пользователями
+        if (data.startsWith('manage_user_')) {
+            const targetUserId = data.replace('manage_user_', '');
+            const userResult = await pool.query(`
+                SELECT * FROM user_profiles WHERE user_id = $1
+            `, [targetUserId]);
+            
+            if (userResult.rows.length > 0) {
+                await sendUserManagementPanel(chatId, userResult.rows[0]);
+            }
+        }
+        
+        else if (data.startsWith('balance_menu_')) {
+            const targetUserId = data.replace('balance_menu_', '');
+            await showBalanceManagement(chatId, userId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('balance_')) {
+            const parts = data.replace('balance_', '').split('_');
+            const action = parts[0];
+            const targetUserId = parts[1];
+            const amount = parts[2] ? parseInt(parts[2]) : 0;
+            
+            await handleBalanceAction(chatId, userId, targetUserId, action, amount, message.message_id);
+        }
+        
+        else if (data.startsWith('user_stats_')) {
+            const targetUserId = data.replace('user_stats_', '');
+            await showUserDetailedStats(chatId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('block_user_')) {
+            const targetUserId = data.replace('block_user_', '');
+            await toggleUserBlock(chatId, userId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('refresh_user_')) {
+            const targetUserId = data.replace('refresh_user_', '');
+            const userResult = await pool.query(`
+                SELECT * FROM user_profiles WHERE user_id = $1
+            `, [targetUserId]);
+            
+            if (userResult.rows.length > 0) {
+                await sendUserManagementPanel(chatId, userResult.rows[0]);
+                await bot.deleteMessage(chatId, message.message_id);
+            }
+        }
+        
+        else if (data === 'new_search') {
+            await bot.sendMessage(
+                chatId,
+                '🔍 <b>Поиск пользователей</b>\n\n' +
+                'Введите команду:\n' +
+                '<code>/search юзернейм</code> - поиск по юзернейму\n' +
+                '<code>/search ID</code> - поиск по ID пользователя\n' +
+                '<code>/search имя</code> - поиск по имени\n\n' +
+                'Примеры:\n' +
+                '<code>/search john_doe</code>\n' +
+                '<code>/search 123456789</code>\n' +
+                '<code>/search Иван</code>',
+                { parse_mode: 'HTML' }
+            );
+            await bot.deleteMessage(chatId, message.message_id);
+        }
+        
+        else if (data === 'users_list') {
+            // Показать последних пользователей
+            const usersResult = await pool.query(`
+                SELECT * FROM user_profiles 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            `);
+            
+            if (usersResult.rows.length > 0) {
+                await sendUsersList(chatId, usersResult.rows, 'последние пользователи');
+                await bot.deleteMessage(chatId, message.message_id);
+            }
+        }
+        
+        // Подтверждаем обработку callback
+        await bot.answerCallbackQuery(callbackQuery.id);
+        
+    } catch (error) {
+        console.error('Callback query error:', error);
+        await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Произошла ошибка' });
+    }
+});
+
+// 📝 КОМАНДА ПОМОЩИ ПО УПРАВЛЕНИЮ ПОЛЬЗОВАТЕЛЯМИ
+bot.onText(/\/user_help/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    // Проверяем права администратора
+    const isAdmin = await checkAdminAccess(userId);
+    if (!isAdmin) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ У вас нет прав для доступа к этой команде.'
+        );
+    }
+    
+    const helpText = `
+🛠️ <b>СИСТЕМА УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ</b>
+
+<b>Основные команды:</b>
+<code>/search username</code> - поиск по юзернейму
+<code>/search 123456</code> - поиск по ID
+<code>/search Имя</code> - поиск по имени
+
+<b>Функционал управления:</b>
+• 💰 <b>Управление балансом</b> - пополнение, списание, сброс
+• 🎭 <b>Права доступа</b> - назначение/снятие админа
+• 📊 <b>Детальная статистика</b> - задания, выплаты, рефералы
+• 🚫 <b>Блокировка</b> - блокировка/разблокировка пользователей
+• 💸 <b>Управление выплатами</b> - история и статусы выплат
+
+<b>Быстрые действия:</b>
+• Пополнение баланса: +50, +100, +500 ⭐
+• Списание средств: -50, -100, -500 ⭐  
+• Сброс баланса: установка 0⭐
+• Произвольная сумма: ввод любой суммы
+
+<b>Уведомления:</b>
+Пользователи автоматически получают уведомления о всех изменениях их баланса и статуса.
+    `.trim();
+    
+    await bot.sendMessage(
+        chatId,
+        helpText,
+        { 
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: '🔍 Начать поиск', callback_data: 'new_search' },
+                        { text: '📋 Список пользователей', callback_data: 'users_list' }
+                    ]
+                ]
+            }
+        }
+    );
+});
+
+// 🔧 ДОБАВЛЯЕМ КОЛОНКУ is_blocked В БАЗУ ДАННЫХ
+async function addBlockedColumn() {
+    try {
+        await pool.query(`
+            ALTER TABLE user_profiles 
+            ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false
+        `);
+        console.log('✅ Column is_blocked added to user_profiles');
+    } catch (error) {
+        console.log('ℹ️ Column is_blocked already exists or error:', error.message);
+    }
+}
+
+// Вызываем при инициализации
+addBlockedColumn();
+// Команда помощи по управлению пользователями
+bot.onText(/\/admin_help/, async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    
+    // Проверяем права администратора
+    const isAdmin = await checkAdminAccess(userId);
+    if (!isAdmin) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ У вас нет прав для доступа к этой команде.'
+        );
+    }
+    
+    const helpText = `
+🛠️ <b>Команды для управления пользователями</b>
+
+<b>Поиск пользователей:</b>
+<code>/search_user username</code> - поиск по юзернейму
+<code>/user 123456</code> - поиск по ID пользователя
+
+<b>Управление балансом:</b>
+• Пополнение счета
+• Списание средств  
+• Установка произвольной суммы
+• Сброс баланса
+
+<b>Управление правами:</b>
+• Назначение администраторов
+• Разжалование администраторов
+
+<b>Просмотр статистики:</b>
+• Детальная статистика заданий
+• История выплат
+• Реферальная статистика 
+
+Для начала работы используйте команду поиска.
+    `.trim();
+    
+    await bot.sendMessage(
+        chatId,
+        helpText,
+        { parse_mode: 'HTML' }
+    );
+});
+// 🔥 ОБНОВЛЕННАЯ КОМАНДА /referral
 bot.onText(/\/referral/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -1332,15 +2681,17 @@ bot.onText(/\/referral/, async (msg) => {
         
         const user = userResult.rows[0];
         const referralLink = `https://t.me/LinkGoldMoney_bot?start=${user.referral_code}`;
-        const shareText = `Присоединяйся к LinkGold и начинай зарабатывать Telegram Stars! 🚀`;
+        const shareText = `Присоединяйся к LinkGold и начни зарабатывать Telegram Stars! 🚀 Получи 2⭐ за регистрацию по моей ссылке!`;
         const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(shareText)}`;
         
         await bot.sendMessage(
             chatId,
             `📢 <b>Реферальная программа LinkGold</b>\n\n` +
-            `🎁 <b>Бонусы за приглашение:</b>\n` +
-            `• Вы получаете: <b>10⭐</b> за друга\n` +
-            `• Друг получает: <b>5⭐</b> при регистрации\n\n` +
+            `🎁 <b>Новая система:</b>\n` +
+            `• Друг получает: <b>2⭐</b> за регистрацию\n` +
+            `• Друг получает: <b>90%</b> от своего заработка\n` +
+            `• Вы получаете: <b>10%</b> от заработка друга\n` +
+            `• Автоматически с каждого задания\n\n` +
             `📊 <b>Ваша статистика:</b>\n` +
             `• Приглашено: <b>${user.referral_count || 0} чел.</b>\n` +
             `• Заработано: <b>${user.referral_earned || 0}⭐</b>\n\n` +
@@ -1486,6 +2837,31 @@ bot.on('callback_query', async (callbackQuery) => {
             );
         }
         
+ if (data.startsWith('toggle_admin_')) {
+            const targetUserId = data.replace('toggle_admin_', '');
+            await toggleAdminStatus(chatId, userId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('manage_balance_')) {
+            const targetUserId = data.replace('manage_balance_', '');
+            await showBalanceManagement(chatId, userId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('refresh_user_')) {
+            const targetUserId = data.replace('refresh_user_', '');
+            await refreshUserInfo(chatId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('user_stats_')) {
+            const targetUserId = data.replace('user_stats_', '');
+            await showUserStats(chatId, targetUserId, message.message_id);
+        }
+        
+        else if (data.startsWith('balance_action_')) {
+            const [action, targetUserId, amount] = data.replace('balance_action_', '').split('_');
+            await handleBalanceAction(chatId, userId, targetUserId, action, parseInt(amount), message.message_id);
+        }
+        
         // Подтверждаем обработку callback
         await bot.answerCallbackQuery(callbackQuery.id);
         
@@ -1494,8 +2870,513 @@ bot.on('callback_query', async (callbackQuery) => {
         await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Произошла ошибка' });
     }
 });
-
 // ... остальные endpoints остаются без изменений ...
+
+
+// Переключение статуса администратора
+async function toggleAdminStatus(chatId, adminId, targetUserId, messageId) {
+    // Проверяем права - только главный админ может управлять админами
+    if (parseInt(adminId) !== ADMIN_ID) {
+        return await bot.sendMessage(
+            chatId,
+            '❌ Только главный администратор может управлять правами доступа.'
+        );
+    }
+    
+    try {
+        const userResult = await pool.query(
+            'SELECT is_admin, username, first_name FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        const newAdminStatus = !user.is_admin;
+        
+        // Обновляем статус администратора
+        await pool.query(
+            'UPDATE user_profiles SET is_admin = $1 WHERE user_id = $2',
+            [newAdminStatus, targetUserId]
+        );
+        
+        // Добавляем права доступа если делаем админом
+        if (newAdminStatus) {
+            try {
+                await pool.query(`
+                    INSERT INTO admin_permissions (admin_id, can_posts, can_tasks, can_verification, can_support, can_payments)
+                    VALUES ($1, true, true, true, true, true)
+                    ON CONFLICT (admin_id) DO UPDATE SET 
+                        can_posts = true,
+                        can_tasks = true,
+                        can_verification = true,
+                        can_support = true,
+                        can_payments = true
+                `, [targetUserId]);
+            } catch (error) {
+                console.log('⚠️ Could not set admin permissions:', error.message);
+            }
+        }
+        
+        const actionText = newAdminStatus ? 'назначен администратором' : 'разжалован из администраторов';
+        
+        await bot.editMessageText(
+            `✅ Пользователь ${user.first_name} (@${user.username}) ${actionText}!`,
+            { chat_id: chatId, message_id: messageId }
+        );
+        
+        // Отправляем уведомление пользователю
+        if (bot) {
+            try {
+                await bot.sendMessage(
+                    targetUserId,
+                    newAdminStatus ? 
+                    `🎉 <b>Поздравляем!</b>\n\nВы были назначены администратором в LinkGold!` :
+                    `ℹ️ <b>Уведомление</b>\n\nВы больше не являетесь администратором LinkGold.`,
+                    { parse_mode: 'HTML' }
+                );
+            } catch (error) {
+                console.log('Не удалось отправить уведомление пользователю');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Toggle admin error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при изменении статуса администратора',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// Управление балансом пользователя
+async function showBalanceManagement(chatId, adminId, targetUserId, messageId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT username, first_name, balance FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        
+        const messageText = `
+💰 <b>Управление балансом</b>
+
+👤 Пользователь: ${user.first_name} (@${user.username})
+💫 Текущий баланс: <b>${user.balance || 0}⭐</b>
+
+Выберите действие:
+        `.trim();
+        
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: '➕ Пополнить 50⭐', callback_data: `balance_action_add_${targetUserId}_50` },
+                    { text: '➕ Пополнить 100⭐', callback_data: `balance_action_add_${targetUserId}_100` }
+                ],
+                [
+                    { text: '➖ Списать 50⭐', callback_data: `balance_action_remove_${targetUserId}_50` },
+                    { text: '➖ Списать 100⭐', callback_data: `balance_action_remove_${targetUserId}_100` }
+                ],
+                [
+                    { text: '🎯 Указать сумму', callback_data: `balance_action_custom_${targetUserId}` },
+                    { text: '🔄 Сбросить баланс', callback_data: `balance_action_reset_${targetUserId}` }
+                ],
+                [
+                    { text: '🔙 Назад', callback_data: `refresh_user_${targetUserId}` }
+                ]
+            ]
+        };
+        
+        await bot.editMessageText(
+            messageText,
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: keyboard
+            }
+        );
+        
+    } catch (error) {
+        console.error('Show balance management error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при загрузке управления балансом',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// Обработка действий с балансом
+async function handleBalanceAction(chatId, adminId, targetUserId, action, amount, messageId) {
+    try {
+        const userResult = await pool.query(
+            'SELECT username, first_name, balance FROM user_profiles WHERE user_id = $1',
+            [targetUserId]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        let newBalance = user.balance || 0;
+        let actionText = '';
+        
+        switch (action) {
+            case 'add':
+                newBalance += amount;
+                actionText = `пополнен на ${amount}⭐`;
+                break;
+                
+            case 'remove':
+                if (newBalance >= amount) {
+                    newBalance -= amount;
+                    actionText = `списано ${amount}⭐`;
+                } else {
+                    newBalance = 0;
+                    actionText = `баланс сброшен (было недостаточно средств)`;
+                }
+                break;
+                
+            case 'reset':
+                actionText = `сброшен до 0⭐`;
+                newBalance = 0;
+                break;
+                
+            case 'custom':
+                // Здесь можно реализовать запрос произвольной суммы
+                await bot.sendMessage(
+                    chatId,
+                    `Введите сумму для изменения баланса пользователя ${user.first_name}:\n\n` +
+                    `Примеры:\n` +
+                    `+100 - пополнить на 100⭐\n` +
+                    `-50 - списать 50⭐\n` +
+                    `=200 - установить баланс 200⭐`
+                );
+                // Сохраняем состояние для обработки следующего сообщения
+                userBalanceState[adminId] = { targetUserId, action: 'custom' };
+                return;
+        }
+        
+        // Обновляем баланс в базе данных
+        await pool.query(
+            'UPDATE user_profiles SET balance = $1 WHERE user_id = $2',
+            [newBalance, targetUserId]
+        );
+        
+        // Логируем действие
+        await pool.query(`
+            INSERT INTO admin_actions (admin_id, action_type, target_id, description) 
+            VALUES ($1, $2, $3, $4)
+        `, [adminId, 'balance_update', targetUserId, `Баланс пользователя ${targetUserId} ${actionText}. Новый баланс: ${newBalance}⭐`]);
+        
+        await bot.editMessageText(
+            `✅ Баланс пользователя ${user.first_name} ${actionText}\n\n` +
+            `💫 Новый баланс: <b>${newBalance}⭐</b>`,
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML'
+            }
+        );
+        
+        // Уведомляем пользователя об изменении баланса
+        if (bot && action !== 'custom') {
+            try {
+                let notificationText = '';
+                if (action === 'add') {
+                    notificationText = `🎉 Ваш баланс пополнен на ${amount}⭐ администратором!\n💫 Текущий баланс: ${newBalance}⭐`;
+                } else if (action === 'remove') {
+                    notificationText = `ℹ️ С вашего баланса списано ${amount}⭐ администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                } else if (action === 'reset') {
+                    notificationText = `ℹ️ Ваш баланс был сброшен администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                }
+                
+                if (notificationText) {
+                    await bot.sendMessage(targetUserId, notificationText);
+                }
+            } catch (error) {
+                console.log('Не удалось отправить уведомление пользователю');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Handle balance action error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при изменении баланса',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// Обновление информации о пользователе
+async function refreshUserInfo(chatId, targetUserId, messageId) {
+    try {
+        const userResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.last_name,
+                up.balance,
+                up.is_admin,
+                up.created_at,
+                up.referral_count,
+                up.referral_earned,
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            WHERE up.user_id = $1
+            GROUP BY up.user_id
+        `, [targetUserId]);
+        
+        if (userResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const user = userResult.rows[0];
+        await sendUserInfo(chatId, user);
+        
+        // Удаляем старое сообщение
+        await bot.deleteMessage(chatId, messageId);
+        
+    } catch (error) {
+        console.error('Refresh user info error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при обновлении информации',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// Показать детальную статистику пользователя
+async function showUserStats(chatId, targetUserId, messageId) {
+    try {
+        const statsResult = await pool.query(`
+            SELECT 
+                up.user_id,
+                up.username,
+                up.first_name,
+                up.balance,
+                up.created_at,
+                -- Статистика по заданиям
+                COUNT(ut.id) as total_tasks,
+                COUNT(CASE WHEN ut.status = 'completed' THEN 1 END) as completed_tasks,
+                COUNT(CASE WHEN ut.status = 'rejected' THEN 1 END) as rejected_tasks,
+                COUNT(CASE WHEN ut.status = 'pending_review' THEN 1 END) as pending_tasks,
+                COUNT(CASE WHEN ut.status = 'active' THEN 1 END) as active_tasks,
+                -- Статистика по выплатам
+                COUNT(wr.id) as withdrawal_requests,
+                COUNT(CASE WHEN wr.status = 'completed' THEN 1 END) as completed_withdrawals,
+                COALESCE(SUM(CASE WHEN wr.status = 'completed' THEN wr.amount ELSE 0 END), 0) as total_withdrawn,
+                -- Реферальная статистика
+                up.referral_count,
+                up.referral_earned,
+                -- Последняя активность
+                MAX(ut.started_at) as last_task_activity
+            FROM user_profiles up
+            LEFT JOIN user_tasks ut ON up.user_id = ut.user_id
+            LEFT JOIN withdrawal_requests wr ON up.user_id = wr.user_id
+            WHERE up.user_id = $1
+            GROUP BY up.user_id
+        `, [targetUserId]);
+        
+        if (statsResult.rows.length === 0) {
+            return await bot.editMessageText(
+                '❌ Пользователь не найден',
+                { chat_id: chatId, message_id: messageId }
+            );
+        }
+        
+        const stats = statsResult.rows[0];
+        const lastActivity = stats.last_task_activity ? 
+            new Date(stats.last_task_activity).toLocaleDateString('ru-RU') : 'нет активности';
+        
+        const messageText = `
+📊 <b>Детальная статистика пользователя</b>
+
+👤 <b>${stats.first_name}</b> (@${stats.username})
+💫 <b>Баланс:</b> ${stats.balance || 0}⭐
+📅 <b>Регистрация:</b> ${new Date(stats.created_at).toLocaleDateString('ru-RU')}
+🕒 <b>Последняя активность:</b> ${lastActivity}
+
+🎯 <b>Задания:</b>
+• Всего: ${stats.total_tasks || 0}
+• Выполнено: ${stats.completed_tasks || 0}
+• Отклонено: ${stats.rejected_tasks || 0}
+• На проверке: ${stats.pending_tasks || 0}
+• Активные: ${stats.active_tasks || 0}
+
+💳 <b>Выплаты:</b>
+• Запросов: ${stats.withdrawal_requests || 0}
+• Выведено: ${stats.completed_withdrawals || 0}
+• Сумма: ${stats.total_withdrawn || 0}⭐
+
+👥 <b>Рефералы:</b>
+• Приглашено: ${stats.referral_count || 0}
+• Заработано: ${stats.referral_earned || 0}⭐
+        `.trim();
+        
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: '🔙 Назад', callback_data: `refresh_user_${targetUserId}` }
+                ]
+            ]
+        };
+        
+        await bot.editMessageText(
+            messageText,
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: keyboard
+            }
+        );
+        
+    } catch (error) {
+        console.error('Show user stats error:', error);
+        await bot.editMessageText(
+            '❌ Ошибка при загрузке статистики',
+            { chat_id: chatId, message_id: messageId }
+        );
+    }
+}
+
+// Глобальная переменная для хранения состояния
+const userBalanceState = {};
+
+// Обработчик текстовых сообщений для ввода произвольной суммы
+bot.on('message', async (msg) => {
+    if (msg.text && !msg.text.startsWith('/')) {
+        const chatId = msg.chat.id;
+        const userId = msg.from.id;
+        const text = msg.text.trim();
+        
+        // Проверяем, ожидаем ли мы ввод суммы для управления балансом
+        if (userBalanceState[userId] && userBalanceState[userId].action === 'custom') {
+            const { targetUserId } = userBalanceState[userId];
+            delete userBalanceState[userId]; // Очищаем состояние
+            
+            try {
+                let amount = 0;
+                let action = '';
+                let newBalance = 0;
+                
+                const userResult = await pool.query(
+                    'SELECT username, first_name, balance FROM user_profiles WHERE user_id = $1',
+                    [targetUserId]
+                );
+                
+                if (userResult.rows.length === 0) {
+                    return await bot.sendMessage(chatId, '❌ Пользователь не найден');
+                }
+                
+                const user = userResult.rows[0];
+                const currentBalance = user.balance || 0;
+                
+                // Парсим ввод пользователя
+                if (text.startsWith('+')) {
+                    amount = parseInt(text.substring(1));
+                    action = 'add';
+                    if (isNaN(amount) || amount <= 0) {
+                        return await bot.sendMessage(chatId, '❌ Неверная сумма для пополнения');
+                    }
+                    newBalance = currentBalance + amount;
+                    
+                } else if (text.startsWith('-')) {
+                    amount = parseInt(text.substring(1));
+                    action = 'remove';
+                    if (isNaN(amount) || amount <= 0) {
+                        return await bot.sendMessage(chatId, '❌ Неверная сумма для списания');
+                    }
+                    newBalance = Math.max(0, currentBalance - amount);
+                    
+                } else if (text.startsWith('=')) {
+                    amount = parseInt(text.substring(1));
+                    action = 'set';
+                    if (isNaN(amount) || amount < 0) {
+                        return await bot.sendMessage(chatId, '❌ Неверная сумма для установки');
+                    }
+                    newBalance = amount;
+                    
+                } else {
+                    return await bot.sendMessage(
+                        chatId,
+                        '❌ Неверный формат. Используйте:\n' +
+                        '+100 - пополнить\n' +
+                        '-50 - списать\n' +
+                        '=200 - установить'
+                    );
+                }
+                
+                // Обновляем баланс
+                await pool.query(
+                    'UPDATE user_profiles SET balance = $1 WHERE user_id = $2',
+                    [newBalance, targetUserId]
+                );
+                
+                // Логируем действие
+                await pool.query(`
+                    INSERT INTO admin_actions (admin_id, action_type, target_id, description) 
+                    VALUES ($1, $2, $3, $4)
+                `, [userId, 'balance_update', targetUserId, `Баланс пользователя ${targetUserId} изменен: ${text}. Новый баланс: ${newBalance}⭐`]);
+                
+                await bot.sendMessage(
+                    chatId,
+                    `✅ Баланс пользователя ${user.first_name} обновлен!\n\n` +
+                    `💫 Новый баланс: <b>${newBalance}⭐</b>`,
+                    { parse_mode: 'HTML' }
+                );
+                
+                // Уведомляем пользователя
+                if (bot) {
+                    try {
+                        let notificationText = '';
+                        if (action === 'add') {
+                            notificationText = `🎉 Ваш баланс пополнен на ${amount}⭐ администратором!\n💫 Текущий баланс: ${newBalance}⭐`;
+                        } else if (action === 'remove') {
+                            notificationText = `ℹ️ С вашего баланса списано ${amount}⭐ администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                        } else if (action === 'set') {
+                            notificationText = `ℹ️ Ваш баланс установлен на ${amount}⭐ администратором.\n💫 Текущий баланс: ${newBalance}⭐`;
+                        }
+                        
+                        await bot.sendMessage(targetUserId, notificationText);
+                    } catch (error) {
+                        console.log('Не удалось отправить уведомление пользователю');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Custom balance action error:', error);
+                await bot.sendMessage(chatId, '❌ Ошибка при изменении баланса');
+            }
+        }
+    }
+});
 
 // Health check с информацией о конфигурации
 // Улучшенный health check
@@ -2138,6 +4019,457 @@ app.get('/api/admin/users-detailed-stats', async (req, res) => {
     }
 });
 
+// 🔗 ENDPOINTS ДЛЯ РЕФЕРАЛЬНЫХ ССЫЛОК
+
+// Создание реферальной ссылки
+// Создание реферальной ссылки - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// Создание реферальной ссылки с базовой статистикой
+app.post('/api/admin/links/create', async (req, res) => {
+    const { adminId, name, description, createdBy } = req.body;
+    
+    console.log('🔗 Create referral link request:', { adminId, name, description, createdBy });
+    
+    try {
+        // Проверка прав администратора
+        const isAdmin = await checkAdminAccess(adminId);
+        if (!isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен. Только администраторы могут создавать ссылки.'
+            });
+        }
+        
+        // Генерируем уникальный код
+        const code = generateReferralCode();
+        
+        // Создаем ссылку на бота
+        const referralUrl = `https://t.me/LinkGoldMoney_bot?start=${code}`;
+        
+        // Создаем запись в базе данных с начальной статистикой
+        const result = await pool.query(`
+            INSERT INTO referral_links (code, name, description, created_by, referral_url, total_clicks, unique_clicks, conversions) 
+            VALUES ($1, $2, $3, $4, $5, 0, 0, 0)
+            RETURNING *
+        `, [code, name.trim(), description?.trim() || '', createdBy, referralUrl]);
+        
+        console.log('✅ Referral link created with tracking:', result.rows[0]);
+        
+        res.json({
+            success: true,
+            message: `Ссылка "${name}" успешно создана!`,
+            link: result.rows[0],
+            referralUrl: referralUrl
+        });
+        
+    } catch (error) {
+        console.error('❌ Create referral link error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка базы данных: ' + error.message
+        });
+    }
+});
+// Отслеживание кликов по реферальным ссылкам
+app.post('/api/referral-links/track-click', async (req, res) => {
+    const { code, userId, ipAddress, userAgent } = req.body;
+    
+    try {
+        // Находим ссылку по коду
+        const linkResult = await pool.query(
+            'SELECT id FROM referral_links WHERE code = $1 AND is_active = true',
+            [code]
+        );
+        
+        if (linkResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Ссылка не найдена'
+            });
+        }
+        
+        const linkId = linkResult.rows[0].id;
+        
+        // Проверяем уникальность клика (по IP и user agent)
+        const uniqueCheck = await pool.query(`
+            SELECT id FROM referral_link_clicks 
+            WHERE link_id = $1 AND ip_address = $2 AND user_agent = $3
+            LIMIT 1
+        `, [linkId, ipAddress, userAgent]);
+        
+        const isUniqueClick = uniqueCheck.rows.length === 0;
+        
+        // Обновляем статистику
+        await pool.query(`
+            UPDATE referral_links 
+            SET total_clicks = total_clicks + 1,
+                unique_clicks = unique_clicks + $1
+            WHERE id = $2
+        `, [isUniqueClick ? 1 : 0, linkId]);
+        
+        // Сохраняем информацию о клике
+        await pool.query(`
+            INSERT INTO referral_link_clicks (link_id, user_id, ip_address, user_agent)
+            VALUES ($1, $2, $3, $4)
+        `, [linkId, userId, ipAddress, userAgent]);
+        
+        res.json({
+            success: true,
+            isUnique: isUniqueClick,
+            message: 'Клик зарегистрирован'
+        });
+        
+    } catch (error) {
+        console.error('Track click error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка отслеживания клика'
+        });
+    }
+});
+// Отслеживание конверсий (регистраций по ссылке)
+app.post('/api/referral-links/track-conversion', async (req, res) => {
+    const { code, userId } = req.body;
+    
+    try {
+        // Находим ссылку по коду
+        const linkResult = await pool.query(
+            'SELECT id FROM referral_links WHERE code = $1 AND is_active = true',
+            [code]
+        );
+        
+        if (linkResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Ссылка не найдена'
+            });
+        }
+        
+        const linkId = linkResult.rows[0].id;
+        
+        // Обновляем счетчик конверсий
+        await pool.query(`
+            UPDATE referral_links 
+            SET conversions = conversions + 1
+            WHERE id = $1
+        `, [linkId]);
+        
+        res.json({
+            success: true,
+            message: 'Конверсия зарегистрирована'
+        });
+        
+    } catch (error) {
+        console.error('Track conversion error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка отслеживания конверсии'
+        });
+    }
+});
+// Функция для проверки и восстановления таблицы referral_links
+async function fixReferralLinksTable() {
+    try {
+        console.log('🔧 Checking referral_links table structure...');
+        
+        // Проверяем существование таблицы
+        const tableExists = await pool.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'referral_links'
+            )
+        `);
+        
+        if (!tableExists.rows[0].exists) {
+            console.log('❌ referral_links table does not exist, creating...');
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS referral_links (
+                    id SERIAL PRIMARY KEY,
+                    code VARCHAR(20) UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    created_by BIGINT NOT NULL,
+                    referral_url TEXT NOT NULL,
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (created_by) REFERENCES user_profiles(user_id)
+                )
+            `);
+            console.log('✅ referral_links table created');
+        }
+        
+        
+        // Проверяем и добавляем отсутствующие колонки
+        const columnsToCheck = [
+            {name: 'description', type: 'TEXT'},
+            {name: 'is_active', type: 'BOOLEAN', defaultValue: 'true'},
+            {name: 'created_at', type: 'TIMESTAMP', defaultValue: 'CURRENT_TIMESTAMP'}
+        ];
+        
+        for (const column of columnsToCheck) {
+            const columnExists = await pool.query(`
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'referral_links' AND column_name = $1
+                )
+            `, [column.name]);
+            
+            if (!columnExists.rows[0].exists) {
+                console.log(`❌ Column ${column.name} missing, adding...`);
+                await pool.query(`
+                    ALTER TABLE referral_links 
+                    ADD COLUMN ${column.name} ${column.type} 
+                    ${column.defaultValue ? `DEFAULT ${column.defaultValue}` : ''}
+                `);
+                console.log(`✅ Column ${column.name} added`);
+            }
+        }
+        
+        console.log('✅ referral_links table structure verified');
+    } catch (error) {
+        console.error('❌ Error fixing referral_links table:', error);
+    }
+}
+
+// Вызовите эту функцию при инициализации сервера
+async function initializeServer() {
+    await initDatabase();
+    await fixReferralLinksTable(); // Добавьте эту строку
+    await createSampleTasks();
+}
+// Получение списка ссылок
+// Улучшенный endpoint для получения списка ссылок
+app.get('/api/admin/links/list', async (req, res) => {
+    const { adminId } = req.query;
+    
+    try {
+        // Проверка прав администратора
+        const isAdmin = await checkAdminAccess(adminId);
+        if (!isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен'
+            });
+        }
+        
+        // Сначала проверяем и исправляем таблицу
+        await fixReferralLinksTable();
+        
+        const result = await pool.query(`
+            SELECT rl.*, 
+                   up.username as creator_username,
+                   up.first_name as creator_name,
+                   COUNT(ra.id) as activation_count,
+                   COALESCE(SUM(ra.reward_amount), 0) as total_earned
+            FROM referral_links rl
+            LEFT JOIN user_profiles up ON rl.created_by = up.user_id
+            LEFT JOIN referral_activations ra ON rl.id = ra.link_id
+            WHERE rl.is_active = true
+            GROUP BY rl.id, up.username, up.first_name
+            ORDER BY rl.created_at DESC
+        `);
+        
+        console.log(`✅ Found ${result.rows.length} active referral links`);
+        
+        res.json({
+            success: true,
+            links: result.rows
+        });
+        
+    } catch (error) {
+        console.error('Get referral links error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
+// Функция для восстановления потерянных ссылок
+app.post('/api/admin/links/recover', async (req, res) => {
+    const { adminId } = req.body;
+    
+    if (parseInt(adminId) !== ADMIN_ID) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен'
+        });
+    }
+    
+    try {
+        console.log('🔧 Attempting to recover referral links...');
+        
+        // 1. Проверяем структуру таблицы
+        await fixReferralLinksTable();
+        
+        // 2. Проверяем, есть ли ссылки в базе
+        const linksCount = await pool.query('SELECT COUNT(*) FROM referral_links WHERE is_active = true');
+        
+        // 3. Если ссылок нет, создаем пример
+        if (parseInt(linksCount.rows[0].count) === 0) {
+            console.log('📝 No links found, creating sample link...');
+            
+            const sampleCode = generateReferralCode();
+            const sampleUrl = `https://t.me/LinkGoldMoney_bot?start=${sampleCode}`;
+            
+            await pool.query(`
+                INSERT INTO referral_links (code, name, description, created_by, referral_url) 
+                VALUES ($1, $2, $3, $4, $5)
+            `, [sampleCode, 'Пример ссылки', 'Тестовая реферальная ссылка', ADMIN_ID, sampleUrl]);
+            
+            console.log('✅ Sample link created');
+        }
+        
+        // 4. Получаем обновленный список
+        const result = await pool.query(`
+            SELECT * FROM referral_links 
+            WHERE is_active = true 
+            ORDER BY created_at DESC
+        `);
+        
+        res.json({
+            success: true,
+            message: `Восстановлено ${result.rows.length} ссылок`,
+            links: result.rows
+        });
+        
+    } catch (error) {
+        console.error('Recover links error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Recovery error: ' + error.message
+        });
+    }
+});
+
+// Удаление ссылки
+app.post('/api/admin/links/delete', async (req, res) => {
+    const { adminId, code } = req.body;
+    
+    try {
+        // Проверка прав администратора
+        const isAdmin = await checkAdminAccess(adminId);
+        if (!isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'Доступ запрещен'
+            });
+        }
+        
+        // Проверяем, может ли админ удалить эту ссылку
+        const linkCheck = await pool.query(
+            'SELECT created_by FROM referral_links WHERE code = $1',
+            [code]
+        );
+        
+        if (linkCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Ссылка не найдена'
+            });
+        }
+        
+        const linkCreator = linkCheck.rows[0].created_by;
+        const isMainAdmin = parseInt(adminId) === ADMIN_ID;
+        
+        if (!isMainAdmin && parseInt(linkCreator) !== parseInt(adminId)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Вы можете удалять только свои ссылки!'
+            });
+        }
+        
+        // Деактивируем ссылку
+        await pool.query(
+            'UPDATE referral_links SET is_active = false WHERE code = $1',
+            [code]
+        );
+        
+        res.json({
+            success: true,
+            message: 'Ссылка успешно удалена!'
+        });
+        
+    } catch (error) {
+        console.error('Delete referral link error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
+// Настройки доступа к ссылкам
+app.get('/api/admin/links/settings', async (req, res) => {
+    const { adminId } = req.query;
+    
+    if (parseInt(adminId) !== ADMIN_ID) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен'
+        });
+    }
+    
+    try {
+        const result = await pool.query(`
+            SELECT allow_admins_links FROM admin_settings WHERE id = 1
+        `);
+        
+        res.json({
+            success: true,
+            allowAdminsLinks: result.rows.length > 0 ? result.rows[0].allow_admins_links : false
+        });
+        
+    } catch (error) {
+        console.error('Get link settings error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
+app.post('/api/admin/links/settings', async (req, res) => {
+    const { adminId, allowAdminsLinks } = req.body;
+    
+    if (parseInt(adminId) !== ADMIN_ID) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен'
+        });
+    }
+    
+    try {
+        await pool.query(`
+            INSERT INTO admin_settings (id, allow_admins_links) 
+            VALUES (1, $1)
+            ON CONFLICT (id) 
+            DO UPDATE SET allow_admins_links = $1
+        `, [allowAdminsLinks]);
+        
+        res.json({
+            success: true,
+            message: 'Настройки сохранены!'
+        });
+        
+    } catch (error) {
+        console.error('Save link settings error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
+// Вспомогательная функция для генерации кода
+// Вспомогательная функция для генерации кода
+function generateReferralCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return 'LINK_' + result;
+}
 // Экспорт данных пользователей
 app.get('/api/admin/users-export', async (req, res) => {
     const { adminId, format = 'json' } = req.query;
@@ -2411,104 +4743,42 @@ app.post('/api/admin/withdrawal-requests/:requestId/complete', async (req, res) 
         });
     }
 });
-// Обновим endpoint /api/user/auth
-app.post('/api/user/auth', async (req, res) => {
-    const { user, referralCode } = req.body; // Добавляем referralCode
-    
-    if (!user) {
-        return res.status(400).json({
-            success: false,
-            error: 'Missing required fields'
-        });
-    }
-    
+
+
+// 🔧 ДИАГНОСТИКА ПРОБЛЕМ С ЗАГРУЗКОЙ ФАЙЛОВ
+app.get('/api/debug/uploads', async (req, res) => {
     try {
-        const isMainAdmin = parseInt(user.id) === ADMIN_ID;
+        const uploadsDir = path.join(__dirname, 'uploads');
+        const files = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
         
-        // Генерируем реферальный код для пользователя
-        const userReferralCode = `ref_${user.id}_${Date.now()}`;
-        
-        let referredBy = null;
-        let referralBonusGiven = false;
-        
-        // Если есть реферальный код, находим того кто пригласил
-        if (referralCode) {
-            const referrerResult = await pool.query(
-                'SELECT user_id FROM user_profiles WHERE referral_code = $1',
-                [referralCode]
-            );
-            
-            if (referrerResult.rows.length > 0) {
-                referredBy = referrerResult.rows[0].user_id;
-            }
-        }
-        
-        const result = await pool.query(`
-            INSERT INTO user_profiles 
-            (user_id, username, first_name, last_name, photo_url, is_admin, referral_code, referred_by, is_first_login) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-            ON CONFLICT (user_id) 
-            DO UPDATE SET 
-                username = EXCLUDED.username,
-                first_name = EXCLUDED.first_name,
-                last_name = EXCLUDED.last_name,
-                photo_url = EXCLUDED.photo_url,
-                is_admin = COALESCE(user_profiles.is_admin, EXCLUDED.is_admin),
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING *
-        `, [
-            user.id, 
-            user.username || `user_${user.id}`,
-            user.first_name || 'Пользователь',
-            user.last_name || '',
-            user.photo_url || '',
-            isMainAdmin,
-            userReferralCode,
-            referredBy
-        ]);
-        
-        const userProfile = result.rows[0];
-        
-        // Если это первый вход и пользователь пришел по реферальной ссылке
-        if (userProfile.is_first_login && referredBy) {
-            // Даем 5 звезд новому пользователю
-            await pool.query(`
-                UPDATE user_profiles 
-                SET balance = COALESCE(balance, 0) + 5,
-                    is_first_login = false
-                WHERE user_id = $1
-            `, [user.id]);
-            
-            // Даем 20 звезд тому, кто пригласил
-            await pool.query(`
-                UPDATE user_profiles 
-                SET balance = COALESCE(balance, 0) + 20,
-                    referral_count = COALESCE(referral_count, 0) + 1,
-                    referral_earned = COALESCE(referral_earned, 0) + 20
-                WHERE user_id = $1
-            `, [referredBy]);
-            
-            referralBonusGiven = true;
-            
-            console.log(`🎉 Реферальный бонус: пользователь ${user.id} получил 5⭐, пригласивший ${referredBy} получил 10⭐`);
-        }
-        
-        // Обновляем данные пользователя после начисления бонусов
-        const updatedUser = await pool.query(
-            'SELECT * FROM user_profiles WHERE user_id = $1',
-            [user.id]
-        );
+        // Проверяем записи в базе данных
+        const dbScreenshots = await pool.query(`
+            SELECT screenshot_url, COUNT(*) as count 
+            FROM task_verifications 
+            WHERE screenshot_url IS NOT NULL 
+            GROUP BY screenshot_url
+            LIMIT 10
+        `);
         
         res.json({
             success: true,
-            user: updatedUser.rows[0],
-            referralBonusGiven: referralBonusGiven
+            uploads: {
+                directory: uploadsDir,
+                exists: fs.existsSync(uploadsDir),
+                fileCount: files.length,
+                files: files.slice(0, 10)
+            },
+            database: {
+                totalVerifications: (await pool.query('SELECT COUNT(*) FROM task_verifications')).rows[0].count,
+                withScreenshots: (await pool.query('SELECT COUNT(*) FROM task_verifications WHERE screenshot_url IS NOT NULL')).rows[0].count,
+                sampleScreenshots: dbScreenshots.rows
+            }
         });
     } catch (error) {
-        console.error('Auth error:', error);
+        console.error('Uploads debug error:', error);
         res.status(500).json({
             success: false,
-            error: 'Database error: ' + error.message
+            error: error.message
         });
     }
 });
@@ -4025,6 +6295,154 @@ app.post('/api/admin/promocodes/create', async (req, res) => {
     }
 });
 
+// ==================== ОТМЕНА ВЫПЛАТЫ ====================
+
+// Endpoint для отмены выплаты и возврата средств пользователю
+app.post('/api/admin/withdrawal-requests/:requestId/cancel', async (req, res) => {
+    const requestId = req.params.requestId;
+    const { adminId } = req.body;
+    
+    console.log('🔄 Отмена выплаты админом:', { requestId, adminId });
+    
+    // Проверка прав администратора
+    const isAdmin = await checkAdminAccess(adminId);
+    if (!isAdmin) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен. Только администраторы могут отменять выплаты.'
+        });
+    }
+    
+    try {
+        // Получаем информацию о запросе на вывод
+        const requestCheck = await pool.query(
+            'SELECT * FROM withdrawal_requests WHERE id = $1',
+            [requestId]
+        );
+        
+        if (requestCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Запрос на вывод не найден'
+            });
+        }
+        
+        const withdrawalRequest = requestCheck.rows[0];
+        
+        // Проверяем, что запрос еще не обработан
+        if (withdrawalRequest.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                error: 'Невозможно отменить уже обработанный запрос'
+            });
+        }
+        
+        // Начинаем транзакцию для безопасного возврата средств
+        const client = await pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            // 1. Возвращаем средства пользователю
+            await client.query(`
+                UPDATE user_profiles 
+                SET balance = COALESCE(balance, 0) + $1
+                WHERE user_id = $2
+            `, [withdrawalRequest.amount, withdrawalRequest.user_id]);
+            
+            // 2. Обновляем статус запроса на "отменен"
+            await client.query(`
+                UPDATE withdrawal_requests 
+                SET status = 'cancelled', 
+                    completed_at = CURRENT_TIMESTAMP,
+                    completed_by = $1
+                WHERE id = $2
+            `, [adminId, requestId]);
+            
+            await client.query('COMMIT');
+            
+            console.log(`✅ Выплата отменена! Средства возвращены пользователю ${withdrawalRequest.user_id}`);
+            
+            // Отправляем уведомление пользователю через бота
+            if (bot) {
+                try {
+                    await bot.sendMessage(
+                        withdrawalRequest.user_id,
+                        `❌ Ваша заявка на вывод ${withdrawalRequest.amount}⭐ была отменена администратором. ` +
+                        `Средства возвращены на ваш баланс.`
+                    );
+                } catch (botError) {
+                    console.log('Не удалось отправить уведомление пользователю:', botError.message);
+                }
+            }
+            
+            res.json({
+                success: true,
+                message: `Выплата отменена! ${withdrawalRequest.amount}⭐ возвращены пользователю`,
+                returnedAmount: withdrawalRequest.amount,
+                userId: withdrawalRequest.user_id
+            });
+            
+        } catch (transactionError) {
+            await client.query('ROLLBACK');
+            throw transactionError;
+        } finally {
+            client.release();
+        }
+        
+    } catch (error) {
+        console.error('❌ Cancel withdrawal error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка при отмене выплаты: ' + error.message
+        });
+    }
+});
+
+// ==================== ИСТОРИЯ ОТМЕНЕННЫХ ВЫПЛАТ ====================
+
+// Получение истории отмененных выплат
+app.get('/api/admin/cancelled-withdrawals', async (req, res) => {
+    const { adminId } = req.query;
+    
+    console.log('📋 Запрос истории отмененных выплат от админа:', adminId);
+    
+    // Проверка прав администратора
+    const isAdmin = await checkAdminAccess(adminId);
+    if (!isAdmin) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен'
+        });
+    }
+    
+    try {
+        const result = await pool.query(`
+            SELECT wr.*, u.username, u.first_name, 
+                   up.username as admin_username, up.first_name as admin_name
+            FROM withdrawal_requests wr
+            LEFT JOIN user_profiles u ON wr.user_id = u.user_id
+            LEFT JOIN user_profiles up ON wr.completed_by = up.user_id
+            WHERE wr.status = 'cancelled'
+            ORDER BY wr.completed_at DESC
+            LIMIT 50
+        `);
+        
+        console.log(`✅ Найдено ${result.rows.length} отмененных выплат`);
+        
+        res.json({
+            success: true,
+            cancelledWithdrawals: result.rows
+        });
+    } catch (error) {
+        console.error('❌ Get cancelled withdrawals error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
 // Получение списка промокодов
 app.get('/api/admin/promocodes/list', async (req, res) => {
     const { adminId } = req.query;
@@ -4455,6 +6873,67 @@ app.delete('/api/support/chats/:chatId', async (req, res) => {
     }
 });
 
+// Функция для отправки информации о пользователе
+async function sendUserInfo(chatId, user) {
+    const userName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+    const userStatus = user.is_admin ? '👑 Администратор' : '👤 Пользователь';
+    const registrationDate = new Date(user.created_at).toLocaleDateString('ru-RU');
+    
+    const messageText = `
+👤 <b>Информация о пользователе</b>
+
+<b>ID:</b> <code>${user.user_id}</code>
+<b>Имя:</b> ${userName}
+<b>Юзернейм:</b> @${user.username || 'не указан'}
+<b>Статус:</b> ${userStatus}
+<b>Баланс:</b> ${user.balance || 0}⭐
+<b>Регистрация:</b> ${registrationDate}
+
+📊 <b>Статистика заданий:</b>
+• Всего заданий: ${user.total_tasks || 0}
+• Выполнено: ${user.completed_tasks || 0}
+• Отклонено: ${user.rejected_tasks || 0}
+• На проверке: ${user.pending_tasks || 0}
+
+👥 <b>Реферальная система:</b>
+• Приглашено: ${user.referral_count || 0} чел.
+• Заработано: ${user.referral_earned || 0}⭐
+    `.trim();
+
+    const keyboard = {
+        inline_keyboard: [
+            [
+                {
+                    text: user.is_admin ? '❌ Разжаловать' : '👑 Сделать админом',
+                    callback_data: `toggle_admin_${user.user_id}`
+                },
+                {
+                    text: user.balance > 0 ? '💳 Управление счетом' : '💰 Пополнить счет',
+                    callback_data: `manage_balance_${user.user_id}`
+                }
+            ],
+            [
+                {
+                    text: '🔄 Обновить',
+                    callback_data: `refresh_user_${user.user_id}`
+                },
+                {
+                    text: '📊 Подробная статистика',
+                    callback_data: `user_stats_${user.user_id}`
+                }
+            ]
+        ]
+    };
+
+    await bot.sendMessage(
+        chatId,
+        messageText,
+        {
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+        }
+    );
+}
 // ==================== TASK VERIFICATION ENDPOINTS ====================
 
 // Система проверки заданий для ВСЕХ админов
@@ -4535,26 +7014,392 @@ app.get('/api/admin/debug-rights', async (req, res) => {
         });
     }
 });
-// Подтверждение задания для ВСЕХ админов - ОБНОВЛЕННАЯ ВЕРСИЯ С УДАЛЕНИЕМ ФАЙЛОВ
-// 🔧 ИСПРАВЛЕННЫЙ ENDPOINT ДЛЯ ОДОБРЕНИЯ ЗАДАНИЯ
-// 🔧 УПРОЩЕННЫЙ ENDPOINT ДЛЯ ОДОБРЕНИЯ ЗАДАНИЯ
+
+// Автоматическая проверка реферальных начислений каждые 30 секунд
+setInterval(() => {
+    if (currentUser) {
+        checkReferralEarnings();
+    }
+}, 30000);
+
 app.post('/api/admin/task-verifications/:verificationId/approve', async (req, res) => {
-    const verificationId = req.params.verificationId;
-    const { adminId } = req.body;
+    const { verificationId } = req.params;
+    const { adminId, forceApprove = false } = req.body;
+
+    console.log('🔄 Admin approving verification:', { verificationId, adminId, forceApprove });
+
+    if (!adminId) {
+        return res.status(400).json({
+            success: false,
+            error: 'ID администратора обязателен'
+        });
+    }
+
+    try {
+        const adminCheck = await pool.query(
+            'SELECT is_admin FROM user_profiles WHERE user_id = $1',
+            [adminId]
+        );
+
+        if (adminCheck.rows.length === 0 || !adminCheck.rows[0].is_admin) {
+            return res.status(403).json({
+                success: false,
+                error: 'Недостаточно прав. Только администратор может одобрять задания.'
+            });
+        }
+
+        const verificationResult = await pool.query(`
+            SELECT 
+                tv.*,
+                t.price as task_price,
+                t.title as task_title,
+                t.people_required,
+                t.completed_count,
+                ut.user_id,
+                up.first_name as user_name,
+                up.username,
+                up.referred_by,
+                up.tasks_completed
+            FROM task_verifications tv
+            JOIN user_tasks ut ON tv.user_task_id = ut.id
+            JOIN tasks t ON ut.task_id = t.id
+            JOIN user_profiles up ON ut.user_id = up.user_id
+            WHERE tv.id = $1
+        `, [verificationId]);
+
+        if (verificationResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Проверка задания не найдена'
+            });
+        }
+
+        const verification = verificationResult.rows[0];
+        const userId = verification.user_id;
+        const taskPrice = verification.task_price;
+        const taskId = verification.task_id;
+        const taskTitle = verification.task_title;
+        const userTasksCompleted = verification.tasks_completed || 0;
+
+        console.log('📊 Verification details:', {
+            userId,
+            taskPrice,
+            taskTitle,
+            peopleRequired: verification.people_required,
+            completedCount: verification.completed_count,
+            userTasksCompleted,
+            hasScreenshot: !!verification.screenshot_url,
+            referredBy: verification.referred_by
+        });
+
+        const userReward = Math.round(taskPrice * 0.9);
+        const referralBonusAmount = taskPrice - userReward;
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Обновляем статус user_task на 'completed'
+            await client.query(
+                'UPDATE user_tasks SET status = $1, completed_at = NOW() WHERE id = $2',
+                ['completed', verification.user_task_id]
+            );
+
+            // 2. Начисляем 90% вознаграждения пользователю
+            await client.query(
+                'UPDATE user_profiles SET balance = balance + $1, tasks_completed = COALESCE(tasks_completed, 0) + 1 WHERE user_id = $2',
+                [userReward, userId]
+            );
+
+            // 3. Обновляем счетчик выполненных заданий
+            await client.query(
+                'UPDATE tasks SET completed_count = COALESCE(completed_count, 0) + 1 WHERE id = $1',
+                [taskId]
+            );
+
+            // 4. Помечаем верификацию как обработанную
+            await client.query(
+                'UPDATE task_verifications SET status = $1, reviewed_at = NOW(), reviewed_by = $2 WHERE id = $3',
+                ['approved', adminId, verificationId]
+            );
+
+            // 🔥 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ПОЛЬЗОВАТЕЛЮ
+            await sendTaskNotification(userId, taskTitle, 'approved');
+
+            let referralBonus = null;
+            
+            if (verification.referred_by) {
+                const referrerId = verification.referred_by;
+                
+                const referrerCheck = await client.query(
+                    'SELECT user_id, first_name, username FROM user_profiles WHERE user_id = $1',
+                    [referrerId]
+                );
+
+                if (referrerCheck.rows.length > 0) {
+                    const referrer = referrerCheck.rows[0];
+                    const bonusAmount = Math.round(taskPrice * 0.1);
+                    
+                    console.log('👥 Реферальная система:', {
+                        referrerId: referrer.user_id,
+                        referrerName: referrer.first_name,
+                        taskPrice: taskPrice,
+                        bonusAmount: bonusAmount,
+                        calculation: `${taskPrice} * 10% = ${bonusAmount}`
+                    });
+
+                    await client.query(
+                        `UPDATE user_profiles 
+                         SET balance = balance + $1, 
+                             referral_earned = COALESCE(referral_earned, 0) + $1
+                         WHERE user_id = $2`,
+                        [bonusAmount, referrerId]
+                    );
+
+                    referralBonus = {
+                        referrerName: referrer.first_name || referrer.username || `User_${referrerId}`,
+                        bonusAmount: bonusAmount,
+                        referrerId: referrerId,
+                        taskPrice: taskPrice,
+                        userReward: userReward
+                    };
+
+                    console.log('✅ Реферальный бонус начислен:', referralBonus);
+
+                    if (bot && referrerId !== adminId) {
+                        try {
+                            await bot.sendMessage(
+                                referrerId,
+                                `💰 <b>Реферальный доход!</b>\n\n` +
+                                `Ваш реферал ${verification.user_name} выполнил задание!\n\n` +
+                                `💫 Вы получили: <b>${bonusAmount}⭐</b> (10%)\n` +
+                                `👤 Реферал получил: <b>${userReward}⭐</b> (90%)\n` +
+                                `🎯 Задание: "${taskTitle}"`,
+                                { parse_mode: 'HTML' }
+                            );
+                        } catch (botError) {
+                            console.log('⚠️ Не удалось отправить уведомление рефереру:', botError.message);
+                        }
+                    }
+                }
+            }
+
+            const taskUpdateResult = await client.query(
+                'SELECT people_required, completed_count FROM tasks WHERE id = $1',
+                [taskId]
+            );
+
+            let taskRemoved = false;
+            if (taskUpdateResult.rows.length > 0) {
+                const task = taskUpdateResult.rows[0];
+                const peopleRequired = task.people_required || 1;
+                const completedCount = task.completed_count || 0;
+
+                if (completedCount >= peopleRequired) {
+                    await client.query(
+                        'UPDATE tasks SET status = $1 WHERE id = $2',
+                        ['completed', taskId]
+                    );
+                    taskRemoved = true;
+                    console.log('🎯 Task completed and removed:', taskId);
+                }
+            }
+
+            await client.query('COMMIT');
+
+            const response = {
+                success: true,
+                message: 'Задание успешно одобрено!',
+                amountAdded: userReward,
+                taskRemoved: taskRemoved,
+                taskCompleted: true,
+                userReward: userReward,
+                originalPrice: taskPrice
+            };
+
+            if (referralBonus) {
+                response.referralBonus = referralBonus;
+                response.message += ` Реферальный бонус: ${referralBonus.bonusAmount}⭐`;
+            }
+
+            if (!verification.screenshot_url) {
+                response.message += " (Одобрено без скриншота)";
+            }
+
+            console.log('✅ Verification approved successfully:', response);
+
+            res.json(response);
+
+        } catch (transactionError) {
+            await client.query('ROLLBACK');
+            console.error('❌ Transaction error:', transactionError);
+            
+            res.status(500).json({
+                success: false,
+                error: 'Внутренняя ошибка сервера'
+            });
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('❌ Approve verification error:', error);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Внутренняя ошибка сервера'
+        });
+    }
+});
+
+// Endpoint для получения обновленного списка проверок после одобрения
+app.get('/api/admin/task-verifications/updated', async (req, res) => {
+    const { adminId } = req.query;
     
-    console.log('✅ Подтверждение задания админом:', { verificationId, adminId });
+    console.log('🔄 Запрос обновленного списка проверок от админа:', adminId);
     
     // Проверка прав администратора
     const isAdmin = await checkAdminAccess(adminId);
     if (!isAdmin) {
         return res.status(403).json({
             success: false,
-            error: 'Доступ запрещен. Только администраторы могут подтверждать задания.'
+            error: 'Доступ запрещен'
         });
     }
     
     try {
-        // Get verification info
+        const result = await pool.query(`
+            SELECT tv.*, u.username, u.first_name, u.last_name
+            FROM task_verifications tv 
+            JOIN user_profiles u ON tv.user_id = u.user_id 
+            WHERE tv.status = 'pending' 
+            ORDER BY tv.submitted_at DESC
+        `);
+        
+        console.log(`✅ Обновленный список: ${result.rows.length} заданий на проверку`);
+        
+        res.json({
+            success: true,
+            verifications: result.rows,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Get updated verifications error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error: ' + error.message
+        });
+    }
+});
+
+// 🔧 ENDPOINT ДЛЯ ПРИНУДИТЕЛЬНОГО ОДОБРЕНИЯ БЕЗ СКРИНШОТА
+app.post('/api/admin/task-verifications/:verificationId/force-approve', async (req, res) => {
+    const { verificationId } = req.params;
+    const { adminId, reason } = req.body;
+
+    console.log('🔧 Force approving verification:', { verificationId, adminId, reason });
+
+    try {
+        // Используем основную функцию с флагом forceApprove
+        const result = await pool.query(`
+            SELECT tv.*, ut.user_id, t.price, t.id as task_id
+            FROM task_verifications tv
+            JOIN user_tasks ut ON tv.user_task_id = ut.id
+            JOIN tasks t ON ut.task_id = t.id
+            WHERE tv.id = $1
+        `, [verificationId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Проверка не найдена'
+            });
+        }
+
+        const verification = result.rows[0];
+
+        // Вызываем основной endpoint с флагом forceApprove
+        const approveResult = await fetch(`http://localhost:${PORT}/api/admin/task-verifications/${verificationId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                adminId: adminId,
+                forceApprove: true
+            })
+        });
+
+        const data = await approveResult.json();
+
+        if (data.success) {
+            // Логируем принудительное одобрение
+            await pool.query(`
+                INSERT INTO admin_actions (admin_id, action_type, target_id, description) 
+                VALUES ($1, $2, $3, $4)
+            `, [adminId, 'force_approve', verificationId, reason || 'Автоматическое одобрение при ошибке скриншота']);
+
+            res.json({
+                success: true,
+                message: 'Задание одобрено в принудительном режиме',
+                ...data
+            });
+        } else {
+            throw new Error(data.error);
+        }
+
+    } catch (error) {
+        console.error('❌ Force approve error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка принудительного одобрения: ' + error.message
+        });
+    }
+});
+// В server.js добавьте:
+app.get('/api/user/:userId/referral-earnings', async (req, res) => {
+    const userId = req.params.userId;
+    
+    try {
+        const result = await pool.query(`
+            SELECT 
+                COUNT(*) as referral_count,
+                COALESCE(SUM(referral_earned), 0) as total_earned
+            FROM user_profiles 
+            WHERE user_id = $1
+        `, [userId]);
+        
+        res.json({
+            success: true,
+            earnings: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Get referral earnings error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database error'
+        });
+    }
+});
+// 🗑️ РУЧНОЕ УДАЛЕНИЕ ПРОВЕРКИ ЗАДАНИЯ
+// 🗑️ РУЧНОЕ УДАЛЕНИЕ ПРОВЕРКИ ЗАДАНИЯ
+app.post('/api/admin/task-verifications/:verificationId/delete', async (req, res) => {
+    const verificationId = req.params.verificationId;
+    const { adminId } = req.body;
+    
+    console.log('🗑️ Ручное удаление проверки задания:', { verificationId, adminId });
+    
+    // Проверка прав администратора
+    const isAdmin = await checkAdminAccess(adminId);
+    if (!isAdmin) {
+        return res.status(403).json({
+            success: false,
+            error: 'Доступ запрещен. Только администраторы могут удалять проверки.'
+        });
+    }
+    
+    try {
+        // Получаем информацию о проверке
         const verification = await pool.query(
             'SELECT * FROM task_verifications WHERE id = $1', 
             [verificationId]
@@ -4563,87 +7408,31 @@ app.post('/api/admin/task-verifications/:verificationId/approve', async (req, re
         if (verification.rows.length === 0) {
             return res.status(404).json({
                 success: false,
-                error: 'Verification not found'
+                error: 'Проверка не найдена'
             });
         }
 
         const verificationData = verification.rows[0];
         
-        // Получаем информацию о задании
-        const taskInfo = await pool.query(`
-            SELECT t.*, 
-                   COUNT(ut.id) as completed_count
-            FROM tasks t
-            LEFT JOIN user_tasks ut ON t.id = ut.task_id AND ut.status = 'completed'
-            WHERE t.id = $1
-            GROUP BY t.id
-        `, [verificationData.task_id]);
+        // Удаляем запись проверки
+        await pool.query('DELETE FROM task_verifications WHERE id = $1', [verificationId]);
         
-        if (taskInfo.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Task not found'
-            });
-        }
-        
-        const task = taskInfo.rows[0];
-        const peopleRequired = task.people_required || 1;
-        const currentCompletedCount = parseInt(task.completed_count) || 0;
-        
-        // Update verification status
-        await pool.query(`
-            UPDATE task_verifications 
-            SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1 
-            WHERE id = $2
-        `, [adminId, verificationId]);
-        
-        // Update user task
+        // Обновляем статус user_task обратно на 'active'
         await pool.query(`
             UPDATE user_tasks 
-            SET status = 'completed', completed_at = CURRENT_TIMESTAMP 
+            SET status = 'active', submitted_at = NULL, screenshot_url = NULL
             WHERE id = $1
         `, [verificationData.user_task_id]);
         
-        // Update user balance and stats
-        await pool.query(`
-            UPDATE user_profiles 
-            SET 
-                balance = COALESCE(balance, 0) + $1,
-                tasks_completed = COALESCE(tasks_completed, 0) + 1,
-                active_tasks = GREATEST(COALESCE(active_tasks, 0) - 1, 0),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE user_id = $2
-        `, [verificationData.task_price, verificationData.user_id]);
-        
-        // 🔥 ПРОВЕРЯЕМ ДОСТИГНУТ ЛИ ЛИМИТ ИСПОЛНИТЕЛЕЙ
-        const newCompletedCount = currentCompletedCount + 1;
-        let taskRemoved = false;
-        
-        if (newCompletedCount >= peopleRequired) {
-            console.log(`🎯 Лимит исполнителей достигнут для задания ${task.id}. Удаляем задание...`);
-            
-            // Автоматически удаляем задание
-            await pool.query(`
-                UPDATE tasks 
-                SET status = 'completed', 
-                    updated_at = CURRENT_TIMESTAMP 
-                WHERE id = $1
-            `, [task.id]);
-            
-            taskRemoved = true;
-            console.log(`✅ Задание ${task.id} автоматически удалено (достигнут лимит: ${peopleRequired} исполнителей)`);
-        }
+        console.log(`✅ Проверка ${verificationId} удалена, задание возвращено в активные`);
         
         res.json({
             success: true,
-            message: 'Task approved successfully',
-            amountAdded: verificationData.task_price,
-            taskCompleted: newCompletedCount >= peopleRequired,
-            taskRemoved: taskRemoved
+            message: 'Проверка успешно удалена, задание возвращено пользователю для повторной отправки'
         });
         
     } catch (error) {
-        console.error('Approve verification error:', error);
+        console.error('Delete verification error:', error);
         res.status(500).json({
             success: false,
             error: 'Database error: ' + error.message
@@ -4651,14 +7440,14 @@ app.post('/api/admin/task-verifications/:verificationId/approve', async (req, re
     }
 });
 
+
 // Отклонение задания для ВСЕХ админов - ОБНОВЛЕННАЯ ВЕРСИЯ С УДАЛЕНИЕМ ФАЙЛОВ
 app.post('/api/admin/task-verifications/:verificationId/reject', async (req, res) => {
     const verificationId = req.params.verificationId;
-    const { adminId } = req.body;
+    const { adminId, comment = '' } = req.body;
     
-    console.log(' ❌ Отклонение задания админом:', { verificationId, adminId });
+    console.log(' ❌ Отклонение задания админом:', { verificationId, adminId, comment });
     
-    // Проверка прав администратора - РАЗРЕШАЕМ ВСЕМ АДМИНАМ
     const isAdmin = await checkAdminAccess(adminId);
     if (!isAdmin) {
         return res.status(403).json({
@@ -4670,11 +7459,13 @@ app.post('/api/admin/task-verifications/:verificationId/reject', async (req, res
     let screenshotPath = '';
     
     try {
-        // Get verification info
-        const verification = await pool.query(
-            'SELECT * FROM task_verifications WHERE id = $1', 
-            [verificationId]
-        );
+        const verification = await pool.query(`
+            SELECT tv.*, t.title as task_title, ut.user_id 
+            FROM task_verifications tv
+            JOIN user_tasks ut ON tv.user_task_id = ut.id
+            JOIN tasks t ON ut.task_id = t.id
+            WHERE tv.id = $1
+        `, [verificationId]);
         
         if (verification.rows.length === 0) {
             return res.status(404).json({
@@ -4684,37 +7475,37 @@ app.post('/api/admin/task-verifications/:verificationId/reject', async (req, res
         }
 
         const verificationData = verification.rows[0];
+        const userId = verificationData.user_id;
+        const taskTitle = verificationData.task_title;
         
-        // Сохраняем путь к файлу для удаления
         screenshotPath = verificationData.screenshot_url;
         
-        // Update verification status
         await pool.query(`
             UPDATE task_verifications 
             SET status = 'rejected', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1 
             WHERE id = $2
         `, [adminId, verificationId]);
         
-        // Update user task
         await pool.query(`
             UPDATE user_tasks 
             SET status = 'rejected', completed_at = CURRENT_TIMESTAMP 
             WHERE id = $1
         `, [verificationData.user_task_id]);
         
-        // 🔥 УДАЛЯЕМ ФАЙЛ СКРИНШОТА ПРИ ОТКЛОНЕНИИ
+        // 🔥 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ОБ ОТКЛОНЕНИИ
+        await sendTaskNotification(userId, taskTitle, 'rejected', comment);
+        
         if (screenshotPath) {
             await deleteScreenshotFile(screenshotPath);
         }
         
         res.json({
             success: true,
-            message: 'Task rejected successfully'
+            message: 'Задание отклонено'
         });
     } catch (error) {
         console.error('Reject verification error:', error);
         
-        // Пробуем удалить файл даже при ошибке
         if (screenshotPath) {
             try {
                 await deleteScreenshotFile(screenshotPath);
@@ -5626,7 +8417,7 @@ app.use('/api/*', (req, res) => {
     });
 });
 
-// Start server
+// Замените текущий app.listen на этот:
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health: http://localhost:${PORT}/api/health`);
@@ -5639,7 +8430,8 @@ app.listen(PORT, '0.0.0.0', async () => {
     try {
         await fixWithdrawalTable();
         await fixTasksTable();
-        console.log('✅ Table structures verified');
+        await fixReferralLinksTable(); // Добавьте эту строку
+        console.log('✅ All table structures verified');
     } catch (error) {
         console.error('❌ Error fixing table structures:', error);
     }

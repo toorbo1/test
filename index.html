@@ -6,8 +6,164 @@
     <title>LinkGold - Платформа для заработка</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<style>
-         .verification-modal-content {
+
+           <style>
+            
+.admin-task-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.admin-task-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.admin-task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.admin-task-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.admin-task-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-task-delete {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.admin-task-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.3s ease;
+}
+
+.copy-btn:hover {
+    background: var(--accent-dark);
+}
+
+.no-tasks {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+            /* Стили для улучшенного интерфейса проверки */
+.verification-modal-content {
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.screenshot-error-placeholder {
+    background: #f5f5f5;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    color: #666;
+}
+
+.retry-button {
+    background: #ff9800;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.retry-button:hover {
+    background: #f57c00;
+}
+
+.emergency-approve {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.emergency-approve:hover {
+    background: linear-gradient(45deg, #ff5252, #e84118);
+}
+             /* Стили для генератора ссылок */
+.link-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.link-stat {
+    text-align: center;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.link-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.link-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.copy-btn:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+}
+            .verification-modal-content {
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
@@ -4936,7 +5092,8 @@ html, body {
     border-left: 3px solid var(--accent);
 }
 
-</style>
+
+    </style>
 </head>
 <body>
 
@@ -5142,30 +5299,35 @@ html, body {
         </div>
         
         <!-- Реферальная система -->
-        <div class="referral-system fade-in">
-            <div class="referral-title">Реферальная система</div>
-            
-            <div class="referral-code">
-                <div class="referral-label">Ваша реферальная ссылка</div>
-                <input type="text" id="referral-link" readonly style="width: 100%; padding: 8px; margin: 8px 0; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); text-align: center;">
-                <button class="copy-btn" onclick="copyReferralLink()">Скопировать ссылку</button>
-            </div>
-            
-            <div class="referral-stats">
-                <div class="referral-stat">
-                    <div class="referral-value" id="ref-invited">0</div>
-                    <div class="referral-label">Приглашено</div>
-                </div>
-                <div class="referral-stat">
-                    <div class="referral-value" id="ref-earned">0 ⭐</div>
-                    <div class="referral-label">Заработано</div>
-                </div>
-            </div>
-            
-            <div class="referral-info">
-                Приглашайте друзей и получайте 10% от их заработка!
-            </div>
+<!-- ОБНОВЛЕННАЯ РЕФЕРАЛЬНАЯ СИСТЕМА -->
+<div class="referral-system fade-in">
+    <div class="referral-title">Реферальная система</div>
+    
+    <div class="referral-code">
+        <div class="referral-label">Ваша реферальная ссылка</div>
+        <input type="text" id="referral-link" readonly style="width: 100%; padding: 8px; margin: 8px 0; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); text-align: center;">
+        <button class="copy-btn" onclick="copyReferralLink()">Скопировать ссылку</button>
+    </div>
+    
+    <div class="referral-stats">
+        <div class="referral-stat">
+            <div class="referral-value" id="ref-invited">0</div>
+            <div class="referral-label">Приглашено</div>
         </div>
+        <div class="referral-stat">
+            <div class="referral-value" id="ref-earned">0 ⭐</div>
+            <div class="referral-label">Заработано</div>
+        </div>
+    </div>
+    
+    <div class="referral-info">
+        🎁 <strong>Новая реферальная система:</strong><br>
+        • Вы получаете <strong>10%</strong> от заработка приглашённых<br>
+        • Приглашённый получает <strong>90%</strong> от своего заработка<br>
+        • Автоматически с каждого выполненного задания<br><br>
+        🔗 Просто отправьте другу эту ссылку в Telegram
+    </div>
+</div>
         <!-- В секции профиля после реферальной системы -->
 <div class="referral-system fade-in">
     <div class="referral-title">🎫 Активация промокода</div>
@@ -5241,8 +5403,54 @@ html, body {
     <button class="admin-btn" onclick="showAdminSection('payments')">💳 Оплаты</button>
     <button class="admin-btn" onclick="showAdminSection('admins')">👥 Админы</button>
     <button class="admin-btn" onclick="showAdminSection('promocodes')">🎫 Промокоды</button>
+<button class="admin-btn" onclick="showAdminSection('links')">🔗 Генератор ссылок</button>
+
 </div>
 
+<!-- Секция генератора ссылок -->
+<!-- Секция генератора ссылок -->
+<div id="admin-links-section" class="admin-section" style="display: none;">
+    <div class="admin-form">
+        <h3>🔗 Генератор ссылок</h3>
+        
+        <!-- Форма создания ссылки -->
+        <div class="form-group">
+            <label>Название ссылки *</label>
+            <input type="text" class="admin-input" id="link-name" 
+                   placeholder="Например: Рекламная кампания ноябрь" maxlength="50">
+        </div>
+        
+        <div class="form-group">
+            <label>Описание (опционально)</label>
+            <textarea class="admin-textarea" id="link-description" 
+                      placeholder="Описание цели ссылки..." rows="2"></textarea>
+        </div>
+
+        <!-- Настройки доступа (только для главного админа) -->
+        <div id="link-access-control" style="display: none;">
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="allow-admins-links">
+                    Разрешить нанятым админам создавать ссылки
+                </label>
+            </div>
+        </div>
+
+        <button class="admin-submit" onclick="createReferralLink()" id="create-link-btn">
+            🔗 Создать ссылку
+        </button>
+        
+        <div id="link-form-message" style="margin-top: 12px; min-height: 20px; font-size: 14px;"></div>
+    </div>
+
+    <!-- Список созданных ссылок -->
+    <div style="margin-top: 25px;">
+        <h4>📋 Созданные ссылки</h4>
+        <div id="links-list" class="admin-task-list">
+            <!-- Ссылки будут загружены здесь -->
+        </div>
+    </div>
+</div>
 <!-- Секция управления админами -->
 <div id="admin-admins-section" class="admin-section" style="display: none;">
     <div class="admin-form">
@@ -5355,6 +5563,10 @@ html, body {
                 <span>Активные заявки: <strong id="active-withdrawals-count">0</strong></span>
                 <span>Всего: <strong id="total-withdrawals-count">0</strong></span>
             </div>
+            <!-- Добавьте эту кнопку рядом с другими элементами управления выплатами -->
+<button class="btn btn-warning" onclick="showCancelledWithdrawals()" style="margin: 10px 0;">
+    📋 История отмененных выплат
+</button>
             <div style="margin-top: 8px;">
                 <button class="btn btn-primary" onclick="loadWithdrawalRequests()" style="padding: 6px 12px; font-size: 12px;">
                     🔄 Обновить
@@ -5958,18 +6170,25 @@ html, body {
             </div>
             
             <div class="verification-modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-error" style="flex: 1;" onclick="rejectVerification()">
-                    ❌ Отклонить
-                </button>
-                <button class="btn btn-success" style="flex: 1;" onclick="approveVerification()">
-                    ✅ Одобрить
-                </button>
-            </div>
-            
-            <!-- Кнопка удаления проверки -->
-            <button class="btn btn-warning" onclick="deleteVerification()" style="margin-top: 10px; width: 100%;">
-                🗑️ Удалить проверку
-            </button>
+    <button class="btn btn-error" style="flex: 1;" onclick="rejectVerification()">
+        ❌ Отклонить
+    </button>
+    <button class="btn btn-success" style="flex: 1;" onclick="approveVerification()">
+        ✅ Одобрить (даже без скриншота)
+    </button>
+</div>
+
+<!-- 🔥 НОВАЯ КНОПКА ДЛЯ АВАРИЙНОГО ОДОБРЕНИЯ -->
+<button class="btn btn-warning" onclick="forceApproveVerification()" 
+        style="margin-top: 10px; width: 100%; display: none;" 
+        id="emergency-approve-btn">
+    🚨 Аварийное одобрение (при ошибках)
+</button>
+
+<!-- Кнопка удаления проверки -->
+<button class="btn btn-warning" onclick="deleteVerification()" style="margin-top: 10px; width: 100%;">
+    🗑️ Удалить проверку
+</button>
         </div>
     </div>
 </div>
@@ -6121,6 +6340,7 @@ html, body {
         }
 
         // Обновленная функция загрузки админских заданий
+// ЗАМЕНИТЕ функцию loadAdminTasks на эту:
 async function loadAdminTasks() {
     console.log('🎯 Loading admin tasks...');
     
@@ -6135,7 +6355,7 @@ async function loadAdminTasks() {
         return;
     }
     
-    // Показываем контейнер заданий
+    // Гарантируем что контейнер видим
     const tasksContainer = document.getElementById('admin-tasks-list-container');
     if (tasksContainer) {
         tasksContainer.style.display = 'block';
@@ -6150,17 +6370,17 @@ async function loadAdminTasks() {
     `;
     
     try {
-        // Загружаем статистику
-        const statsResult = await makeRequest(`/api/admin/tasks-stats?adminId=${currentUser.id}`);
-        
-        // Загружаем задания
-        const tasksResult = await makeRequest(`/api/admin/simple-tasks?adminId=${currentUser.id}`);
+        // Загружаем статистику и задания параллельно
+        const [statsResult, tasksResult] = await Promise.all([
+            makeRequest(`/api/admin/tasks-stats?adminId=${currentUser.id}`),
+            makeRequest(`/api/admin/simple-tasks?adminId=${currentUser.id}`)
+        ]);
         
         console.log('📊 Stats result:', statsResult);
         console.log('📊 Tasks result:', tasksResult);
         
         if (tasksResult.success && statsResult.success) {
-            allAdminTasks = tasksResult.tasks || [];
+            const allAdminTasks = tasksResult.tasks || [];
             displayAdminTasks(allAdminTasks, statsResult.statistics);
         } else {
             throw new Error(tasksResult.error || statsResult.error || 'Unknown error');
@@ -6183,7 +6403,7 @@ async function loadAdminTasks() {
         `;
     }
 }
-
+// ДОБАВЬТЕ эту функцию:
 function displayAdminTasks(tasks, stats) {
     const container = document.getElementById('admin-tasks-list');
     if (!container) {
@@ -6195,9 +6415,8 @@ function displayAdminTasks(tasks, stats) {
     
     container.innerHTML = '';
     
-    // Показываем расширенную статистику с правильными счетчиками
+    // Показываем статистику
     if (stats) {
-        // Рассчитываем правильные счетчики
         const completedCount = stats.completed_tasks || 0;
         const rejectedCount = stats.rejected_tasks || 0;
         const pendingCount = stats.pending_tasks || 0;
@@ -6224,21 +6443,6 @@ function displayAdminTasks(tasks, stats) {
                         <div style="font-size: 18px; font-weight: bold; color: var(--warning);">${pendingCount}</div>
                         <div>⏳ На проверке</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 18px; font-weight: bold; color: var(--text-primary);">${activeCount}</div>
-                        <div>🟡 В процессе</div>
-                    </div>
-                </div>
-                
-                <!-- Дополнительная строка со счетчиками как в требовании -->
-                <div style="margin-top: 15px; padding: 10px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 5px;">Текущая статистика:</div>
-                    <div style="display: flex; justify-content: space-around; font-size: 12px;">
-                        <span>✅ ${completedCount} выполнено</span>
-                        <span>❌ ${rejectedCount} отклонено</span>
-                        <span>⏳ ${pendingCount} на проверке</span>
-                        <span>🟡 ${activeCount} в процессе</span>
-                    </div>
                 </div>
             </div>
         `;
@@ -6253,9 +6457,6 @@ function displayAdminTasks(tasks, stats) {
                 <div style="font-size: 14px; color: var(--text-secondary);">
                     Создайте первое задание используя форму выше
                 </div>
-                <button class="btn btn-primary" onclick="debugAdminTasks()" style="margin-top: 16px;">
-                    🐛 Диагностика
-                </button>
             </div>
         `;
         return;
@@ -6274,11 +6475,6 @@ function displayAdminTasks(tasks, stats) {
             <button onclick="loadAdminTasks()" class="btn btn-primary" style="padding: 8px 12px; font-size: 12px;">
                 🔄 Обновить
             </button>
-            ${currentAdminSearchTerm ? `
-                <button onclick="clearAdminTaskSearch()" class="btn btn-warning" style="padding: 8px 12px; font-size: 12px;">
-                    🗑️ Очистить поиск
-                </button>
-            ` : ''}
         </div>
     `;
     container.innerHTML += filterHTML;
@@ -6292,6 +6488,129 @@ function displayAdminTasks(tasks, stats) {
     
     // Отображаем все задания
     renderAdminTasks(tasks);
+}
+
+function renderAdminTasks(tasks) {
+    const container = document.getElementById('admin-tasks-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const filter = document.getElementById('admin-task-filter')?.value || 'all';
+    
+    const filteredTasks = tasks.filter(task => {
+        switch (filter) {
+            case 'active':
+                return task.status === 'active';
+            case 'completed':
+                return task.status === 'completed';
+            case 'my':
+                return task.created_by === currentUser.id;
+            default:
+                return true; // 'all'
+        }
+    });
+    
+    console.log(`🎯 Rendering ${filteredTasks.length} filtered tasks (filter: ${filter})`);
+    
+    if (filteredTasks.length === 0) {
+        container.innerHTML = `
+            <div class="no-tasks" style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
+                <div>Заданий не найдено</div>
+                <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+                    Попробуйте изменить фильтр
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    filteredTasks.forEach(task => {
+        const taskElement = createAdminTaskElement(task);
+        container.appendChild(taskElement);
+    });
+}
+// ДОБАВЬТЕ эту функцию:
+function createAdminTaskElement(task) {
+    const taskElement = document.createElement('div');
+    taskElement.className = 'admin-task-item';
+    taskElement.style.cssText = `
+        background: var(--card-bg);
+        border: 1px solid ${task.status === 'completed' ? 'var(--success)' : 'var(--border)'};
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        opacity: ${task.status === 'completed' ? 0.8 : 1};
+    `;
+    
+    const completedCount = task.completed_count || 0;
+    const peopleRequired = task.people_required || 1;
+    const progressPercentage = Math.min(100, (completedCount / peopleRequired) * 100);
+    const isCompleted = task.status === 'completed';
+    
+    taskElement.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">
+                    ${task.title}
+                    ${isCompleted ? ' <span style="color: var(--success); font-size: 12px;">(Завершено)</span>' : ''}
+                </div>
+                <div style="color: var(--text-secondary); font-size: 14px;">${task.description}</div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="font-size: 20px; color: var(--gold); font-weight: 600;">
+                    ${task.price} ⭐
+                </div>
+                ${!isCompleted ? `
+                    <button class="admin-task-delete" onclick="deleteTask(${task.id})" style="background: var(--error); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+                        🗑️ Удалить
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+            <span>📁 ${task.category || 'general'}</span>
+            <span>👥 ${peopleRequired} чел.</span>
+            <span>⚡ ${task.difficulty || 'Легкая'}</span>
+            <span>🕒 ${task.time_to_complete || '5-10 минут'}</span>
+            <span style="color: ${isCompleted ? 'var(--success)' : 'var(--accent)'};">
+                ${isCompleted ? '✅ Завершено' : '🟢 Активно'}
+            </span>
+        </div>
+        
+        <!-- Прогресс выполнения -->
+        <div style="margin: 10px 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                <span>Выполнено: ${completedCount}/${peopleRequired}</span>
+                <span>${Math.round(progressPercentage)}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${progressPercentage}%; background: ${isCompleted ? 'var(--success)' : 'var(--accent)'};"></div>
+            </div>
+        </div>
+        
+        <!-- Статистика по заданиям -->
+        <div style="display: flex; gap: 15px; font-size: 11px; color: var(--text-secondary);">
+            <span>✅ ${completedCount} выполнено</span>
+            <span>❌ ${task.rejected_count || 0} отклонено</span>
+            <span>⏳ ${task.pending_count || 0} на проверке</span>
+        </div>
+        
+        ${task.image_url ? `
+            <div style="margin-top: 10px;">
+                <img src="${task.image_url}" alt="Изображение задания" style="max-width: 200px; border-radius: 8px; border: 1px solid var(--border);">
+            </div>
+        ` : ''}
+        
+        <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+            Создано: ${new Date(task.created_at).toLocaleDateString('ru-RU')}
+            ${task.last_completed ? ` • Последнее выполнение: ${new Date(task.last_completed).toLocaleDateString('ru-RU')}` : ''}
+        </div>
+    `;
+    
+    return taskElement;
 }
         // Инициализация поиска при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
@@ -6357,9 +6676,7 @@ function showProfileTab() {
     setTimeout(() => {
         updateUserData();
         syncUserProfile();
-        
-        // Прокручиваем к началу
-        scrollToTop();
+        checkReferralEarnings(); // 🔥 ДОБАВЬТЕ ЭТУ СТРОЧКУ
     }, 100);
 }
 
@@ -6657,7 +6974,7 @@ function initializePromocodes() {
 
 async function makeRequest(endpoint, options = {}) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 секунд
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // Увеличиваем таймаут до 30 секунд
     
     try {
         let url;
@@ -6682,17 +6999,19 @@ async function makeRequest(endpoint, options = {}) {
 
         clearTimeout(timeoutId);
 
-        // Более детальная обработка HTTP статусов
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ HTTP ${response.status}: ${errorText}`);
             
+            // 🔥 УЛУЧШЕННАЯ ОБРАБОТКА HTTP ОШИБОК
             if (response.status === 403) {
                 throw new Error('Доступ запрещен. У вас недостаточно прав.');
             } else if (response.status === 404) {
-                throw new Error('не найден.');
+                throw new Error('Ресурс не найден.');
             } else if (response.status === 500) {
-                throw new Error('Внутренняя ошибка сервера.');
+                throw new Error('Внутренняя ошибка сервера. Попробуйте позже.');
+            } else if (response.status === 502) {
+                throw new Error('Проблема с соединением. Сервер временно недоступен.');
             } else {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -6706,10 +7025,13 @@ async function makeRequest(endpoint, options = {}) {
         clearTimeout(timeoutId);
         console.error('💥 Request failed:', error);
         
+        // 🔥 УЛУЧШЕННАЯ КЛАССИФИКАЦИЯ ОШИБОК
         if (error.name === 'AbortError') {
-            throw new Error('Таймаут запроса. Сервер не отвежает.');
+            throw new Error('Таймаут запроса. Сервер не отвечает.');
         } else if (error.name === 'TypeError') {
             throw new Error('Проблема с сетью. Проверьте подключение к интернету.');
+        } else if (error.message.includes('Failed to fetch')) {
+            throw new Error('Не удалось подключиться к серверу. Проверьте интернет-соединение.');
         } else {
             throw error;
         }
@@ -7906,28 +8228,40 @@ setTimeout(debugAdminRights, 2000);
         }
 
        // 🔧 ОБНОВЛЕННОЕ АВТООБНОВЛЕНИЕ ДАННЫХ
+// Добавьте в начало функции, где используется currentUser
 function startUserDataAutoUpdate() {
+    // Проверяем существование currentUser перед установкой интервала
+    if (typeof currentUser === 'undefined' || !currentUser) {
+        console.log('❌ currentUser не определен, откладываем автообновление');
+        setTimeout(startUserDataAutoUpdate, 5000); // Повторим через 5 секунд
+        return;
+    }
+    
     setInterval(async () => {
-        if (currentUser) {
-            try {
-                const result = await makeRequest(`/user/${currentUser.id}`);
-                if (result.success) {
-                    // Сохраняем старые данные для сравнения
-                    const oldLevel = currentUser.level;
-                    const oldTasksCompleted = currentUser.tasks_completed;
-                    
-                    // Обновляем текущего пользователя
-                    currentUser = { ...currentUser, ...result.profile };
-                    
-                    // Обновляем отображение
-                    displayUserProfile();
-                    updateLevelProgress(); // Важно: обновляем прогресс уровня
-                    
-                    console.log('✅ Данные пользователя автообновлены');
-                }
-            } catch (error) {
-                console.error('Ошибка автообновления данных пользователя:', error);
+        // Дополнительная проверка внутри интервала
+        if (typeof currentUser === 'undefined' || !currentUser) {
+            console.log('❌ currentUser не определен в интервале');
+            return;
+        }
+        
+        try {
+            const result = await makeRequest(`/user/${currentUser.id}`);
+            if (result.success) {
+                // Сохраняем старые данные для сравнения
+                const oldLevel = currentUser.level;
+                const oldTasksCompleted = currentUser.tasks_completed;
+                
+                // Обновляем текущего пользователя
+                currentUser = { ...currentUser, ...result.profile };
+                
+                // Обновляем отображение
+                displayUserProfile();
+                updateLevelProgress();
+                
+                console.log('✅ Данные пользователя автообновлены');
             }
+        } catch (error) {
+            console.error('Ошибка автообновления данных пользователя:', error);
         }
     }, 30000);
 }
@@ -7998,6 +8332,32 @@ function displayUserProfile() {
     updateProfileStats();
     updateReferralSystem();
     updateLevelProgress(); // ← ВАЖНО: вызываем обновление прогресса уровня
+
+        // Добавьте реферальную информацию
+    const referralInfo = document.getElementById('referral-info');
+    if (referralInfo && currentUser) {
+        if (currentUser.referred_by) {
+            referralInfo.innerHTML = `
+                <div style="background: var(--success-light); padding: 10px; border-radius: 8px; margin: 10px 0;">
+                    <div style="font-size: 14px; color: var(--success);">
+                        👥 Вы пришли по реферальной ссылке
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        Вы получаете 90% от заработка, пригласивший - 10%
+                    </div>
+                </div>
+            `;
+        } else {
+            referralInfo.innerHTML = `
+                <div style="background: var(--bg-secondary); padding: 10px; border-radius: 8px; margin: 10px 0;">
+                    <div style="font-size: 14px;">
+                        🔗 Приглашайте друзей и получайте 10% от их заработка!
+                    </div>
+                </div>
+            `;
+        }
+    }
+
 }
 
 function updateProfileStats() {
@@ -8044,6 +8404,8 @@ async function updateActiveTasksCount() {
     }
 }
 
+// 🔧 ОБНОВЛЕННАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ РЕФЕРАЛЬНОЙ СИСТЕМЫ
+// 🔧 ОБНОВЛЕННАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ РЕФЕРАЛЬНОЙ СИСТЕМЫ
 function updateReferralSystem() {
     if (!currentUser) return;
     
@@ -8054,23 +8416,119 @@ function updateReferralSystem() {
     const referralInput = document.getElementById('referral-link');
     if (referralInput) referralInput.value = referralLink;
     
+    // Обновляем статистику
     const refInvited = document.getElementById('ref-invited');
     const refEarned = document.getElementById('ref-earned');
     
     if (refInvited) refInvited.textContent = currentUser.referral_count || 0;
     if (refEarned) refEarned.textContent = `${currentUser.referral_earned || 0} ⭐`;
     
-    // 🔥 ИСПРАВЛЕНИЕ: Обновляем текст с правильными бонусами
+    // 🔥 ОБНОВЛЯЕМ ТЕКСТ С НОВЫМИ УСЛОВИЯМИ
     const referralInfo = document.querySelector('.referral-info');
     if (referralInfo) {
         referralInfo.innerHTML = `
-            🎁 Вы получаете: <strong>10⭐</strong> за друга<br>
-            🎁 Друг получает: <strong>5⭐</strong> при регистрации<br><br>
+            🎁 <strong>Реферальная система:</strong><br>
+            • Новый пользователь получает <strong>2⭐</strong> за переход по ссылке<br>
+            • Вы получаете <strong>90%</strong> от своего заработка<br>
+            • Пригласивший получает <strong>10%</strong> от вашего заработка<br>
+            • Автоматически с каждого выполненного задания<br>
+            • Ваш заработок с рефералов: <strong>${currentUser.referral_earned || 0} ⭐</strong><br>
+            • Приглашено друзей: <strong>${currentUser.referral_count || 0}</strong><br><br>
             🔗 Просто отправьте другу эту ссылку в Telegram
         `;
     }
 }
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПРОВЕРКИ РЕФЕРАЛЬНЫХ НАЧИСЛЕНИЙ
+async function checkReferralEarnings() {
+    if (!currentUser) return;
+    
+    try {
+        const result = await makeRequest(`/api/user/${currentUser.id}/referral-earnings`);
+        
+        if (result.success) {
+            // Обновляем данные пользователя
+            if (result.earnings) {
+                currentUser.referral_earned = result.earnings.total_earned || 0;
+                currentUser.referral_count = result.earnings.referral_count || 0;
+                
+                // Обновляем интерфейс
+                updateReferralSystem();
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка проверки реферальных начислений:', error);
+    }
+}
+
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЬНОЙ СТАТИСТИКИ РЕФЕРАЛОВ
+async function loadDetailedReferralStats() {
+    if (!currentUser) return;
+    
+    try {
+        const result = await makeRequest(`/api/user/${currentUser.id}/referrals/detailed`);
+        
+        if (result.success) {
+            displayDetailedReferralStats(result.referrals);
+        }
+    } catch (error) {
+        console.error('Error loading detailed referral stats:', error);
+    }
+}
+
+// 🔧 ФУНКЦИЯ ОТОБРАЖЕНИЯ ДЕТАЛЬНОЙ СТАТИСТИКИ РЕФЕРАЛОВ
+function displayDetailedReferralStats(referrals) {
+    const container = document.getElementById('detailed-referrals-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!referrals || referrals.length === 0) {
+        container.innerHTML = `
+            <div class="no-referrals" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                <div style="font-size: 48px; margin-bottom: 16px;">👥</div>
+                <div>У вас пока нет приглашённых друзей</div>
+                <div style="font-size: 14px; margin-top: 8px;">
+                    Приглашайте друзей и получайте 10% от их заработка!
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    referrals.forEach(ref => {
+        const refElement = document.createElement('div');
+        refElement.className = 'referral-item';
+        refElement.style.cssText = `
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        `;
+        
+        refElement.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-weight: 600;">${ref.first_name || 'Пользователь'}</div>
+                <div style="color: ${ref.status === 'active' ? 'var(--success)' : 'var(--warning)'}; font-size: 12px;">
+                    ${ref.status === 'active' ? '✅ Активен' : '⏳ Ожидает'}
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 14px; color: var(--text-secondary);">
+                <div>@${ref.username || 'без username'}</div>
+                <div>Баланс: ${ref.friend_balance || 0}⭐</div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                Зарегистрирован: ${new Date(ref.created_at).toLocaleDateString('ru-RU')}
+            </div>
+        `;
+        
+        container.appendChild(refElement);
+    });
+}
 // Получение детальной информации о рефералах
+// 🔧 ENDPOINT ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЬНОЙ СТАТИСТИКИ РЕФЕРАЛОВ
 app.get('/api/user/:userId/referrals/detailed', async (req, res) => {
     const userId = req.params.userId;
     
@@ -9497,7 +9955,7 @@ setTimeout(addMobileFixButton, 2000);
 // 🔧 ФУНКЦИЯ ФОРМАТИРОВАНИЯ КАТЕГОРИИ
 function formatCategory(category) {
     const categoryMap = {
-        'social': '👥 Соцсети',
+        'social': '👥 Соцсети ',
         'subscribe': '📱 Подписки', 
         'view': '👀 Просмотры',
         'comment': '💬 Комментарии',
@@ -9513,7 +9971,15 @@ async function initializeApp() {
 
     // Применяем исправления layout сразу
     fixLayoutIssues();
+    // Применяем исправления layout сразу
+    fixLayoutIssues();
 
+    // 🔥 ВАЖНО: Загружаем ссылки при старте если пользователь админ
+    if (currentUser && (currentUser.is_admin || parseInt(currentUser.id) === ADMIN_ID)) {
+        setTimeout(() => {
+            loadReferralLinksList();
+        }, 1000);
+    }
     // 🔥 ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА ЗАДАНИЙ ПРИ СТАРТЕ
     console.log('🚀 FORCE loading tasks on app start...');
     setTimeout(() => {
@@ -10564,8 +11030,7 @@ window.activatePromoCode = activatePromoCode;
 window.deactivatePromoCode = deactivatePromoCode;
 
 
-// В функции openVerificationModal обновите HTML:
-// В функции openVerificationModal обновите HTML:
+// 🔧 ОБНОВЛЕННАЯ ФУНКЦИЯ ОТКРЫТИЯ МОДАЛЬНОГО ОКНА ПРОВЕРКИ
 function openVerificationModal(verification) {
     console.log('📖 Opening verification modal:', verification);
     
@@ -10601,18 +11066,20 @@ function openVerificationModal(verification) {
         taskPrice.textContent = `${verification.task_price || 0} ⭐`;
     }
     
-    if (screenshot && verification.screenshot_url) {
-        screenshot.src = verification.screenshot_url;
-        screenshot.onerror = function() {
-            console.error('❌ Failed to load screenshot');
-            this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExYTNhIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM4YjlkZGEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
-            showNotification('Не удалось загрузить скриншот', 'warning');
-        };
-        screenshot.style.display = 'block';
-    } else {
-        console.error('❌ No screenshot URL provided');
-        if (screenshot) {
+    // 🔥 УЛУЧШЕННАЯ ОБРАБОТКА СКРИНШОТА
+    if (screenshot) {
+        if (verification.screenshot_url) {
+            screenshot.src = verification.screenshot_url;
+            screenshot.style.display = 'block';
+            screenshot.onerror = function() {
+                console.error('❌ Failed to load screenshot');
+                this.style.display = 'none';
+                // 🔥 ПОКАЗЫВАЕМ СООБЩЕНИЕ О ПРОБЛЕМЕ СО СКРИНШОТОМ
+                showScreenshotErrorWarning();
+            };
+        } else {
             screenshot.style.display = 'none';
+            showScreenshotErrorWarning();
         }
     }
 
@@ -10624,6 +11091,42 @@ function openVerificationModal(verification) {
     } else {
         console.error('❌ Verification modal not found');
         showNotification('Ошибка: модальное окно не найдено', 'error');
+    }
+}
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПОКАЗА ПРЕДУПРЕЖДЕНИЯ О ПРОБЛЕМЕ СО СКРИНШОТОМ
+function showScreenshotErrorWarning() {
+    const modalBody = document.querySelector('.verification-modal-content .modal-body');
+    if (!modalBody) return;
+    
+    // Удаляем существующие предупреждения
+    const existingWarning = document.getElementById('screenshot-warning');
+    if (existingWarning) {
+        existingWarning.remove();
+    }
+    
+    const warningHTML = `
+        <div id="screenshot-warning" style="
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid #ff9800;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            text-align: center;
+        ">
+            <div style="color: #ff9800; font-weight: 600; margin-bottom: 5px;">
+                ⚠️ Скриншот не загружен
+            </div>
+            <div style="font-size: 12px; color: var(--text-secondary);">
+                Вы все равно можете одобрить задание, нажав кнопку ниже
+            </div>
+        </div>
+    `;
+    
+    // Вставляем предупреждение перед кнопками действий
+    const actionButtons = modalBody.querySelector('.verification-modal-actions');
+    if (actionButtons) {
+        actionButtons.insertAdjacentHTML('beforebegin', warningHTML);
     }
 }
 
@@ -10767,8 +11270,37 @@ async function deleteVerification() {
         showNotification(errorMessage, 'error');
     }
 }
+// Функция для проверки реферальных начислений
+async function monitorReferralSystem() {
+    console.log('🔍 Monitoring referral system...');
+    
+    // Проверяем последние реферальные начисления
+    try {
+        const result = await pool.query(`
+            SELECT 
+                COUNT(*) as total_referrals,
+                SUM(CASE WHEN balance >= 2 THEN 1 ELSE 0 END) as users_with_bonus,
+                AVG(balance) as avg_balance
+            FROM user_profiles 
+            WHERE referred_by IS NOT NULL
+        `);
+        
+        const stats = result.rows[0];
+        console.log('📊 Referral system stats:', {
+            totalReferrals: stats.total_referrals,
+            usersWithBonus: stats.users_with_bonus,
+            avgBalance: stats.avg_balance
+        });
+        
+    } catch (error) {
+        console.error('Error monitoring referral system:', error);
+    }
+}
 
+// Запускайте периодически
+setInterval(monitorReferralSystem, 60000);
 // 🔧 ИСПРАВЛЕННАЯ ФУНКЦИЯ ОДОБРЕНИЯ ЗАДАНИЯ
+// 🔧 УЛУЧШЕННАЯ ФУНКЦИЯ ОДОБРЕНИЯ ЗАДАНИЯ С ОБРАБОТКОЙ ОШИБОК
 async function approveVerification() {
     if (!currentVerificationId) {
         showNotification('❌ ID верификации не найден', 'error');
@@ -10785,19 +11317,26 @@ async function approveVerification() {
             verificationId: currentVerificationId,
             adminId: currentUser.id
         });
-
+// В функции approveVerification добавьте проверку:
+console.log('💰 Income distribution:', {
+    taskPrice: taskPrice,
+    userReward: userReward,
+    referralBonus: referralBonusAmount,
+    calculation: `User: ${userReward} (90%), Referrer: ${referralBonusAmount} (10%)`
+});
         // Показываем индикатор загрузки
-        const approveBtn = document.querySelector('.verification-approve');
+        const approveBtn = document.querySelector('.btn-success');
         if (approveBtn) {
             approveBtn.disabled = true;
             approveBtn.textContent = 'Одобряем...';
         }
 
-        // 🔧 ИСПРАВЛЕНИЕ: Правильный endpoint и обработка ошибок
+        // 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ: Отправляем запрос даже если скриншот не загружается
         const result = await makeRequest(`/api/admin/task-verifications/${currentVerificationId}/approve`, {
             method: 'POST',
             body: JSON.stringify({
-                adminId: currentUser.id
+                adminId: currentUser.id,
+                forceApprove: true // 🔥 Новый параметр для принудительного одобрения
             })
         });
 
@@ -10806,53 +11345,161 @@ async function approveVerification() {
         if (result.success) {
             let message = `✅ Задание одобрено! Пользователь получил ${result.amountAdded || result.task_price}⭐`;
             
+            // 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем и отображаем реферальный бонус
+            if (result.referralBonus) {
+                message += `\n\n👥 Реферальный бонус: ${result.referralBonus.referrerName} получил ${result.referralBonus.bonusAmount}⭐ (10%)`;
+                
+                // Показываем анимацию реферального бонуса
+                showReferralBonusAnimation(result.referralBonus.referrerName, result.referralBonus.bonusAmount);
+            }
+            
             if (result.taskRemoved || result.taskCompleted) {
                 message += "\n\n🎯 Задание автоматически удалено - достигнут лимит исполнителей!";
             }
             
             showNotification(message, 'success');
             
-            // 🔥 ВАЖНОЕ ИСПРАВЛЕНИЕ: Закрываем модальное окно ДО обновления данных
             closeModal('verification-modal');
             
-            // 🔥 ОБНОВЛЯЕМ ДАННЫЕ ПОСЛЕ ЗАКРЫТИЯ МОДАЛЬНОГО ОКНА
             setTimeout(() => {
-                // Обновляем все списки
-                loadTaskVerifications(); // Обновляем список проверки
-                loadAdminTasks(); // Обновляем задания админа
+                loadTaskVerifications();
+                loadAdminTasks();
                 updateUserData(); // Обновляем данные пользователя
-                
                 console.log('✅ Интерфейс успешно обновлен после одобрения задания');
             }, 500);
             
         } else {
-            throw new Error(result.error || 'Неизвестная ошибка сервера');
+            // 🔥 УЛУЧШЕННАЯ ОБРАБОТКА ОШИБОК: Пробуем принудительное одобрение
+            if (result.error && (result.error.includes('скриншот') || result.error.includes('изображение'))) {
+                console.log('⚠️ Проблема со скриншотом, пробуем принудительное одобрение...');
+                await forceApproveVerification();
+            } else {
+                throw new Error(result.error || 'Неизвестная ошибка сервера');
+            }
         }
 
     } catch (error) {
         console.error('❌ Сетевая ошибка при одобрении:', error);
         
-        let errorMessage = 'Сетевая ошибка при одобрении задания';
-        if (error.message.includes('Failed to fetch')) {
-            errorMessage = '❌ Проблема с соединением. Проверьте интернет и попробуйте снова.';
-        } else if (error.message.includes('404')) {
-            errorMessage = '❌ не найден. Сообщите администратору.';
-        } else if (error.message.includes('403')) {
-            errorMessage = '❌ Доступ запрещен. У вас нет прав администратора.';
-        } else if (error.message.includes('500')) {
-            errorMessage = '❌ Ошибка сервера. Попробуйте позже.';
+        // 🔥 АВАРИЙНЫЙ РЕЖИМ: Пробуем принудительное одобрение при любых сетевых ошибках
+        console.log('🚨 Аварийный режим: пробуем принудительное одобрение...');
+        await forceApproveVerification();
+    }
+}
+
+// 🔧 ФУНКЦИЯ ПРИНУДИТЕЛЬНОГО ОДОБРЕНИЯ ПРИ ОШИБКАХ
+async function forceApproveVerification() {
+    try {
+        console.log('🔧 Принудительное одобрение верификации:', currentVerificationId);
+        
+        const result = await makeRequest(`/api/admin/task-verifications/${currentVerificationId}/force-approve`, {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id,
+                reason: 'Автоматическое одобрение при ошибке загрузки скриншота'
+            })
+        });
+
+        if (result.success) {
+            showNotification('✅ Задание одобрено (автоматический режим)!', 'success');
+            
+            closeModal('verification-modal');
+            
+            setTimeout(() => {
+                loadTaskVerifications();
+                loadAdminTasks();
+                updateUserData();
+            }, 500);
+            
+        } else {
+            throw new Error('Не удалось выполнить принудительное одобрение: ' + result.error);
         }
         
-        showNotification(errorMessage, 'error');
+    } catch (forceError) {
+        console.error('❌ Ошибка принудительного одобрения:', forceError);
+        showNotification('❌ Критическая ошибка: ' + forceError.message, 'error');
         
         // Восстанавливаем кнопку
-        const approveBtn = document.querySelector('.verification-approve');
+        const approveBtn = document.querySelector('.btn-success');
         if (approveBtn) {
             approveBtn.disabled = false;
             approveBtn.textContent = '✅ Одобрить';
         }
     }
 }
+
+
+
+function showReferralBonusAnimation(referrerName, bonusAmount) {
+    const animation = document.createElement('div');
+    animation.style.cssText = `
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--success);
+        color: white;
+        padding: 20px 30px;
+        border-radius: 15px;
+        text-align: center;
+        z-index: 10001;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        animation: referralBonusSlide 3s ease-in-out;
+        max-width: 300px;
+        width: 90%;
+    `;
+    
+    animation.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 10px;">👥</div>
+        <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">
+            Реферальный бонус!
+        </div>
+        <div style="font-size: 14px; margin-bottom: 5px;">
+            ${referrerName}
+        </div>
+        <div style="font-size: 20px; font-weight: 800; color: var(--gold);">
+            +${bonusAmount} ⭐
+        </div>
+        <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">
+            (10% от заработка реферала)
+        </div>
+    `;
+    
+    document.body.appendChild(animation);
+    
+    // Автоматическое скрытие через 4 секунды
+    setTimeout(() => {
+        animation.remove();
+    }, 4000);
+}
+
+// Добавьте CSS анимацию
+const referralBonusStyles = `
+    <style>
+        @keyframes referralBonusSlide {
+            0% {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+            20% {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+            80% {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+        }
+    </style>
+`;
+
+// Добавьте стили в документ
+document.head.insertAdjacentHTML('beforeend', referralBonusStyles);
 
 // Функция для диагностики проблемы
 async function debugApprovalIssue() {
@@ -11829,18 +12476,7 @@ function showTasksTab() {
             updateNavState('tasks');
         }
 
-        // 🔧 ОБРАБОТЧИК ПЕРЕКЛЮЧЕНИЯ НА ВКЛАДКУ ПРОФИЛЯ
-function showProfileTab() {
-    hideAllTabs();
-    document.getElementById('profile-tab').classList.add('active');
-    updateNavState('profile');
-    
-    // Синхронизируем данные при каждом открытии профиля
-    setTimeout(() => {
-        updateUserData();
-        syncUserProfile();
-    }, 100);
-}
+
 // 🔧 ФУНКЦИЯ УДАЛЕНИЯ ЗАДАНИЯ
 async function deleteTask(taskId) {
     if (!confirm('Удалить это задание?')) return;
@@ -11993,7 +12629,7 @@ setTimeout(addAdminDebugButton, 3000);
             }
         }
 // 🔧 ПОЛНАЯ ФУНКЦИЯ ПОКАЗА АДМИН-СЕКЦИЙ С ПРОМОКОДАМИ
-// 🔧 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКАЗА АДМИН-СЕКЦИЙ
+// ЗАМЕНИТЕ существующую функцию showAdminSection на эту:
 function showAdminSection(section) {
     console.log('🔄 Switching to admin section:', section);
     
@@ -12009,70 +12645,46 @@ function showAdminSection(section) {
         createdTasksContainer.parentElement.style.display = 'none';
     }
     
-    // Скрываем форму создания задания во всех секциях, кроме tasks
-    const taskForm = document.querySelector('#admin-tasks-section .admin-form');
-    if (taskForm) {
-        taskForm.style.display = section === 'tasks' ? 'block' : 'none';
-    }
-    
     // Показываем выбранную секцию
     const targetSection = document.getElementById('admin-' + section + '-section');
     if (targetSection) {
         targetSection.style.display = 'block';
         console.log(`✅ Showing: admin-${section}-section`);
 
-        // Загружаем данные для определенных секций
-        switch(section) {
-            case 'posts':
-                console.log('📝 Loading posts management...');
-                loadAdminPosts();
-                break;
-                
-            case 'tasks':
-                console.log('📋 Loading tasks management...');
-                // Показываем контейнер "Созданные задания" только для секции tasks
-                const tasksContainer = document.getElementById('admin-tasks-list');
-                if (tasksContainer && tasksContainer.parentElement) {
-                    tasksContainer.parentElement.style.display = 'block';
-                }
-                // Показываем форму создания заданий
-                if (taskForm) {
-                    taskForm.style.display = 'block';
-                }
-                setTimeout(() => {
-                    loadAdminTasks();
-                }, 100);
-                break;
-                
-            case 'payments':
-                console.log('💳 Loading withdrawal requests...');
-                loadWithdrawalRequests();
-                break;
-                
-            case 'verification':
-                console.log('✅ Loading task verifications...');
-                loadTaskVerifications();
-                break;
-                
-            case 'support':
-                console.log('💬 Loading support chats...');
-                loadAdminChats();
-                break;
-                
-            case 'admins':
-                console.log('👥 Loading admins list...');
-                loadAdminsList();
-                break;
-                
-            case 'promocodes':
-                console.log('🎫 Loading promocodes management...');
-                loadPromocodesList();
-                break;
-                
-            default:
-                console.log(`ℹ️ No specific loader for section: ${section}`);
+        // ДЛЯ СЕКЦИИ ЗАДАНИЙ - ПОКАЗЫВАЕМ КОНТЕЙНЕР
+        if (section === 'tasks') {
+            const tasksContainer = document.getElementById('admin-tasks-list-container');
+            if (tasksContainer) {
+                tasksContainer.style.display = 'block';
+            }
+            
+            // Загружаем задания
+            setTimeout(() => {
+                loadAdminTasks();
+            }, 100);
         }
         
+        // Загружаем данные для других секций
+        switch(section) {
+            case 'posts':
+                loadAdminPosts();
+                break;
+            case 'payments':
+                loadWithdrawalRequests();
+                break;
+            case 'verification':
+                loadTaskVerifications();
+                break;
+            case 'support':
+                loadAdminChats();
+                break;
+            case 'admins':
+                loadAdminsList();
+                break;
+            case 'promocodes':
+                loadPromocodesList();
+                break;
+        }
     } else {
         console.error(`❌ Target section not found: admin-${section}-section`);
     }
@@ -12100,6 +12712,72 @@ async function loadPromocodesList() {
     } catch (error) {
         console.error('❌ Load promocodes error:', error);
         showNotification('Ошибка загрузки промокодов: ' + error.message, 'error');
+    }
+}
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПРОВЕРКИ СЕТЕВОГО СОЕДИНЕНИЯ
+async function checkNetworkConnection() {
+    try {
+        const response = await fetch('/api/health', { 
+            method: 'HEAD',
+            timeout: 5000 
+        });
+        return response.ok;
+    } catch (error) {
+        console.error('❌ Network connection failed:', error);
+        return false;
+    }
+}
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПОВТОРНОЙ ПОПЫТКИ ОДОБРЕНИЯ
+async function retryApproval(maxRetries = 3) {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`🔄 Попытка одобрения ${attempt}/${maxRetries}`);
+            
+            const result = await makeRequest(`/api/admin/task-verifications/${currentVerificationId}/approve`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    adminId: currentUser.id,
+                    retryAttempt: attempt
+                })
+            });
+            
+            if (result.success) {
+                return result;
+            }
+            
+            lastError = new Error(result.error);
+            
+        } catch (error) {
+            lastError = error;
+            console.error(`❌ Попытка ${attempt} не удалась:`, error);
+            
+            // Ждем перед следующей попыткой
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+    }
+    
+    throw lastError;
+}
+
+// 🔧 ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ СТАТУСА КНОПОК ПРИ ОШИБКАХ
+function updateApprovalButtonOnError() {
+    const approveBtn = document.querySelector('.btn-success');
+    const emergencyBtn = document.getElementById('emergency-approve-btn');
+    
+    if (approveBtn) {
+        approveBtn.disabled = false;
+        approveBtn.textContent = '🔄 Повторить попытку';
+        approveBtn.onclick = retryApproval;
+    }
+    
+    if (emergencyBtn) {
+        emergencyBtn.style.display = 'block';
     }
 }
 
@@ -12388,12 +13066,15 @@ window.loadPromocodesList = loadPromocodesList;
 window.createPromoCode = createPromoCode;
 window.activatePromoCode = activatePromoCode;
 window.deactivatePromoCode = deactivatePromoCode;
+// ДОБАВЬТЕ эти функции для постов:
 async function loadAdminPosts() {
     try {
         console.log('📝 Loading admin posts...');
-        const result = await makeRequest('/posts');
+        const result = await makeRequest('/api/posts');
         if (result.success) {
             displayAdminPosts(result.posts);
+        } else {
+            console.error('Error loading posts:', result.error);
         }
     } catch (error) {
         console.error('Error loading admin posts:', error);
@@ -12410,7 +13091,15 @@ function displayAdminPosts(posts) {
     container.innerHTML = '';
     
     if (!posts || posts.length === 0) {
-        container.innerHTML = ` `;
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
+                <div>Нет опубликованных постов</div>
+                <div style="font-size: 14px; margin-top: 8px;">
+                    Создайте первый пост используя форму выше
+                </div>
+            </div>
+        `;
         return;
     }
     
@@ -12419,14 +13108,14 @@ function displayAdminPosts(posts) {
         postElement.className = 'admin-task-item';
         postElement.innerHTML = `
             <div class="admin-task-header">
-                <div class="admin-task-title">${post.title}</div>
+                <div class="admin-task-title">${escapeHtml(post.title)}</div>
                 <div class="admin-task-actions">
                     <button class="admin-task-delete" onclick="deletePost(${post.id})">
                         🗑️ Удалить
                     </button>
                 </div>
             </div>
-            <div class="admin-task-description">${post.content}</div>
+            <div class="admin-task-description">${escapeHtml(post.content)}</div>
             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
                 Автор: ${post.author} • ${new Date(post.created_at).toLocaleDateString('ru-RU')}
             </div>
@@ -12434,6 +13123,54 @@ function displayAdminPosts(posts) {
         container.appendChild(postElement);
     });
 }
+
+// ДОБАВЬТЕ эту функцию для быстрого восстановления:
+function emergencyRestoreAdminPanel() {
+    console.log('🚨 EMERGENCY RESTORE ADMIN PANEL');
+    
+    // Принудительно показываем секцию заданий
+    const tasksSection = document.getElementById('admin-tasks-section');
+    if (tasksSection) {
+        tasksSection.style.display = 'block';
+        tasksSection.style.opacity = '1';
+        tasksSection.style.visibility = 'visible';
+    }
+    
+    // Принудительно показываем контейнер заданий
+    const tasksContainer = document.getElementById('admin-tasks-list-container');
+    if (tasksContainer) {
+        tasksContainer.style.display = 'block';
+    }
+    
+    // Загружаем задания
+    setTimeout(() => {
+        loadAdminTasks();
+        loadAdminPosts();
+    }, 500);
+    
+    console.log('✅ Emergency restore complete');
+}
+
+// Добавьте кнопку для экстренного восстановления
+function addEmergencyButton() {
+    const emergencyBtn = document.createElement('button');
+    emergencyBtn.textContent = '🚨 Восстановить админ-панель';
+    emergencyBtn.style.position = 'fixed';
+    emergencyBtn.style.top = '150px';
+    emergencyBtn.style.right = '10px';
+    emergencyBtn.style.zIndex = '10000';
+    emergencyBtn.style.padding = '10px';
+    emergencyBtn.style.background = 'red';
+    emergencyBtn.style.color = 'white';
+    emergencyBtn.style.border = 'none';
+    emergencyBtn.style.borderRadius = '5px';
+    emergencyBtn.style.fontSize = '12px';
+    emergencyBtn.onclick = emergencyRestoreAdminPanel;
+    document.body.appendChild(emergencyBtn);
+}
+
+// Вызовите при загрузке
+setTimeout(addEmergencyButton, 2000);
 
         // 🎨 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
         function escapeHtml(unsafe) {
@@ -12721,17 +13458,111 @@ function displayWithdrawalRequests(requests) {
                 <div>ID пользователя: ${request.user_id}</div>
                 <div>Запрос создан: ${requestDate}</div>
             </div>
-            <div class="admin-task-actions" style="margin-top: 10px; display: flex; gap: 10px;">
-                <button class="admin-task-approve" onclick="completeWithdrawal(${request.id})" 
-                        style="background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; flex: 1;">
-                    ✅ Перечислил средства
-                </button>
-            </div>
+<div class="admin-task-actions" style="margin-top: 10px; display: flex; gap: 10px;">
+    <button class="admin-task-approve" onclick="completeWithdrawal(${request.id})" 
+            style="background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; flex: 1;">
+        ✅ Перечислил средства
+    </button>
+    <button class="admin-task-cancel" onclick="cancelWithdrawal(${request.id})" 
+            style="background: var(--error); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; flex: 1;">
+        ❌ Отменить выплату
+    </button>
+</div>
         `;
         
         container.appendChild(requestElement);
     });
 }
+
+// 🔧 ФУНКЦИЯ ОТМЕНЫ ВЫПЛАТЫ
+async function cancelWithdrawal(requestId) {
+    if (!confirm('Вы уверены, что хотите отменить эту выплату?\n\nСредства будут возвращены на баланс пользователя.')) {
+        return;
+    }
+    
+    try {
+        console.log('🔄 Cancelling withdrawal:', requestId);
+        
+        const result = await makeRequest(`/api/admin/withdrawal-requests/${requestId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id
+            })
+        });
+        
+        console.log('📨 Cancel response:', result);
+        
+        if (result.success) {
+            showNotification(`✅ ${result.message}`, 'success');
+            loadWithdrawalRequests(); // Обновляем список заявок
+        } else {
+            showNotification('❌ Ошибка: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Cancel withdrawal error:', error);
+        showNotification('❌ Ошибка отмены выплаты: ' + error.message, 'error');
+    }
+}
+
+// 🔧 ФУНКЦИЯ ДЛЯ ПРОСМОТРА ИСТОРИИ ОТМЕНЕННЫХ ВЫПЛАТ
+async function showCancelledWithdrawals() {
+    try {
+        const result = await makeRequest(`/api/admin/cancelled-withdrawals?adminId=${currentUser.id}`);
+        
+        if (result.success) {
+            displayCancelledWithdrawals(result.cancelledWithdrawals);
+        } else {
+            showNotification('Ошибка загрузки истории отмен: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error loading cancelled withdrawals:', error);
+        showNotification('Ошибка загрузки истории отмененных выплат', 'error');
+    }
+}
+
+// 🔧 ФУНКЦИЯ ОТОБРАЖЕНИЯ ОТМЕНЕННЫХ ВЫПЛАТ
+function displayCancelledWithdrawals(withdrawals) {
+    // Создаем модальное окно для отображения истории
+    const modalHTML = `
+        <div class="modal active" id="cancelled-withdrawals-modal">
+            <div class="modal-content" style="max-width: 800px; max-height: 80vh;">
+                <div class="modal-header">
+                    <div class="modal-title">❌ История отмененных выплат</div>
+                    <button class="modal-close" onclick="closeModal('cancelled-withdrawals-modal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <div id="cancelled-withdrawals-list">
+                        ${withdrawals.length === 0 ? 
+                            '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Нет отмененных выплат</div>' : 
+                            withdrawals.map(withdrawal => `
+                                <div class="admin-task-item" style="margin-bottom: 12px;">
+                                    <div class="admin-task-header">
+                                        <div class="admin-task-title">
+                                            ${withdrawal.first_name || withdrawal.username || `User_${withdrawal.user_id}`}
+                                            ${withdrawal.username ? ` (@${withdrawal.username})` : ''}
+                                        </div>
+                                        <div class="admin-task-price" style="color: var(--error);">
+                                            ${withdrawal.amount} ⭐
+                                        </div>
+                                    </div>
+                                    <div class="admin-task-description">
+                                        <div>Отменено: ${new Date(withdrawal.completed_at).toLocaleString('ru-RU')}</div>
+                                        <div>Администратором: ${withdrawal.admin_name || `ID: ${withdrawal.completed_by}`}</div>
+                                        <div>ID пользователя: ${withdrawal.user_id}</div>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Добавляем модальное окно в DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
 // Замените сложные функции на более простые
 function simpleShowTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tab => {
@@ -12805,6 +13636,528 @@ function showAdminPaymentsSection() {
     }, 100);
 }
 
+// 🔗 ФУНКЦИИ ДЛЯ ГЕНЕРАТОРА ССЫЛОК
+
+
+// Загрузить настройки доступа
+async function loadLinkAccessSettings() {
+    try {
+        const result = await makeRequest('/api/admin/links/settings?adminId=' + currentUser.id);
+        if (result.success) {
+            document.getElementById('allow-admins-links').checked = result.allowAdminsLinks || false;
+        }
+    } catch (error) {
+        console.error('Error loading link settings:', error);
+    }
+}
+
+
+// Создать реферальную ссылку (упрощенная версия)
+async function createReferralLink() {
+    const nameInput = document.getElementById('link-name');
+    const descriptionInput = document.getElementById('link-description');
+    const messageDiv = document.getElementById('link-form-message');
+    const submitBtn = document.getElementById('create-link-btn');
+    
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!name) {
+        messageDiv.innerHTML = '<span style="color: var(--error);">Введите название ссылки!</span>';
+        return;
+    }
+    
+    if (!currentUser) {
+        messageDiv.innerHTML = '<span style="color: var(--error);">Пользователь не авторизован</span>';
+        return;
+    }
+    
+    // Показываем загрузку
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Создаем...';
+    messageDiv.innerHTML = '<span style="color: var(--warning);">Создаем ссылку...</span>';
+    
+    try {
+        const result = await makeRequest('/api/admin/links/create', {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id,
+                name: name,
+                description: description,
+                createdBy: currentUser.id
+            })
+        });
+        
+        if (result.success) {
+            messageDiv.innerHTML = `<span style="color: var(--success);">${result.message}</span>`;
+            
+            // Очищаем форму
+            nameInput.value = '';
+            descriptionInput.value = '';
+            
+            // Обновляем список ссылок
+            loadReferralLinksList();
+            
+            showNotification('✅ Ссылка успешно создана!', 'success');
+            
+        } else {
+            throw new Error(result.error || 'Неизвестная ошибка сервера');
+        }
+        
+    } catch (error) {
+        console.error('❌ Create link error:', error);
+        messageDiv.innerHTML = `<span style="color: var(--error);">Ошибка: ${error.message}</span>`;
+        showNotification('❌ Ошибка создания ссылки: ' + error.message, 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🔗 Создать ссылку';
+    }
+}
+
+// Загрузить список ссылок
+async function loadReferralLinksList() {
+    if (!currentUser) return;
+    
+    try {
+        const result = await makeRequest(`/api/admin/links/list?adminId=${currentUser.id}`);
+        
+        if (result.success) {
+            displayReferralLinksList(result.links);
+        } else {
+            console.error('Error loading links:', result.error);
+        }
+    } catch (error) {
+        console.error('Load links error:', error);
+    }
+}
+
+// Отобразить список ссылок (упрощенная версия)
+function displayReferralLinksList(links) {
+    const container = document.getElementById('links-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!links || links.length === 0) {
+        container.innerHTML = `
+            <div class="no-tasks" style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+                <div>Нет созданных ссылок</div>
+                <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+                    Создайте первую ссылку используя форму выше
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    links.forEach(link => {
+        const linkElement = createSimplifiedLinkElement(link);
+        container.appendChild(linkElement);
+    });
+}
+
+// Создать упрощенный элемент ссылки (только подсчет приглашенных)
+function createSimplifiedLinkElement(link) {
+    const linkElement = document.createElement('div');
+    linkElement.className = 'admin-task-item';
+    
+    const referralUrl = link.referral_url || `https://t.me/LinkGoldMoney_bot?start=${link.code}`;
+    const isOwner = link.created_by === currentUser.id;
+    const isMainAdmin = parseInt(currentUser.id) === ADMIN_ID;
+    
+    linkElement.innerHTML = `
+        <div class="admin-task-header">
+            <div class="admin-task-title">
+                <span style="font-weight: 600;">${escapeHtml(link.name)}</span>
+                ${link.description ? `
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                        ${escapeHtml(link.description)}
+                    </div>
+                ` : ''}
+            </div>
+            <div class="admin-task-actions">
+                ${(isOwner || isMainAdmin) ? `
+                    <button class="admin-task-delete" onclick="deleteReferralLink('${link.code}')">
+                        🗑️ Удалить
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+        
+        <div class="admin-task-description">
+            <!-- Ссылка -->
+            <div style="margin-bottom: 10px;">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Ссылка:</div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" value="${referralUrl}" readonly 
+                           style="flex: 1; padding: 8px; background: var(--bg-primary); 
+                                  border: 1px solid var(--border); border-radius: 6px; 
+                                  color: var(--text-primary); font-size: 12px;">
+                    <button class="copy-btn" onclick="copyLink('${referralUrl}')" 
+                            style="background: var(--accent); color: white; border: none; 
+                                   padding: 8px 12px; border-radius: 6px; cursor: pointer; 
+                                   font-size: 12px;">
+                        Копировать
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Статистика - ТОЛЬКО ПОДСЧЕТ ПРИГЛАШЕННЫХ -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 10px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 18px; font-weight: 700; color: var(--accent);">${link.referral_count || 0}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Приглашено</div>
+                </div>
+            </div>
+            
+            <!-- Информация -->
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
+                <div>Создана: ${new Date(link.created_at).toLocaleDateString('ru-RU')}</div>
+                <div>Код: ${link.code}</div>
+            </div>
+            
+            <!-- Владелец -->
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                Создал: ${link.creator_name || 'Администратор'}
+            </div>
+        </div>
+    `;
+    
+    return linkElement;
+}
+
+// Копировать ссылку
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showNotification('✅ Ссылка скопирована в буфер обмена!', 'success');
+    }).catch(() => {
+        // Fallback для старых браузеров
+        const tempInput = document.createElement('input');
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        showNotification('✅ Ссылка скопирована!', 'success');
+    });
+}
+
+// 🔗 ФУНКЦИИ ДЛЯ ГЕНЕРАТОРА ССЫЛОК
+
+// Показать секцию управления ссылками
+function showAdminLinksSection() {
+    showAdminSection('links');
+    loadReferralLinksList();
+}
+
+// Загрузить список ссылок с подробной статистикой
+async function loadReferralLinksList() {
+    if (!currentUser) return;
+    
+    try {
+        const result = await makeRequest(`/api/admin/links/list?adminId=${currentUser.id}`);
+        
+        if (result.success) {
+            displayReferralLinksList(result.links);
+        } else {
+            console.error('Error loading links:', result.error);
+        }
+    } catch (error) {
+        console.error('Load links error:', error);
+    }
+}
+
+// Отобразить список ссылок с подробной статистикой
+function displayReferralLinksList(links) {
+    const container = document.getElementById('links-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (!links || links.length === 0) {
+        container.innerHTML = `
+            <div class="no-tasks" style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
+                <div>Нет созданных ссылок</div>
+                <div style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">
+                    Создайте первую ссылку используя форму выше
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    links.forEach(link => {
+        const linkElement = createDetailedLinkElement(link);
+        container.appendChild(linkElement);
+    });
+}
+
+// Создать элемент ссылки с подробной статистикой переходов
+function createDetailedLinkElement(link) {
+    const linkElement = document.createElement('div');
+    linkElement.className = 'admin-task-item';
+    
+    const referralUrl = link.referral_url || `https://t.me/LinkGoldMoney_bot?start=${link.code}`;
+    const isOwner = link.created_by === currentUser.id;
+    const isMainAdmin = parseInt(currentUser.id) === ADMIN_ID;
+    
+    // Статистика переходов
+    const totalClicks = link.total_clicks || 0;
+    const uniqueClicks = link.unique_clicks || 0;
+    const conversions = link.conversions || 0;
+    const conversionRate = totalClicks > 0 ? ((conversions / totalClicks) * 100).toFixed(1) : 0;
+    
+    linkElement.innerHTML = `
+        <div class="admin-task-header">
+            <div class="admin-task-title">
+                <span style="font-weight: 600;">${escapeHtml(link.name)}</span>
+                ${link.description ? `
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                        ${escapeHtml(link.description)}
+                    </div>
+                ` : ''}
+            </div>
+            <div class="admin-task-actions">
+                ${(isOwner || isMainAdmin) ? `
+                    <button class="admin-task-delete" onclick="deleteReferralLink('${link.code}')">
+                        🗑️ Удалить
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+        
+        <div class="admin-task-description">
+            <!-- Ссылка -->
+            <div style="margin-bottom: 10px;">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Ссылка:</div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" value="${referralUrl}" readonly 
+                           style="flex: 1; padding: 8px; background: var(--bg-primary); 
+                                  border: 1px solid var(--border); border-radius: 6px; 
+                                  color: var(--text-primary); font-size: 12px;">
+                    <button class="copy-btn" onclick="copyLink('${referralUrl}')" 
+                            style="background: var(--accent); color: white; border: none; 
+                                   padding: 8px 12px; border-radius: 6px; cursor: pointer; 
+                                   font-size: 12px;">
+                        Копировать
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Подробная статистика переходов -->
+            <div style="margin-top: 15px;">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    📊 Статистика переходов:
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: var(--accent);">${totalClicks}</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Всего переходов</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: var(--success);">${uniqueClicks}</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Уникальных</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: var(--gold);">${conversions}</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Регистраций</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 18px; font-weight: 700; color: var(--purple);">${conversionRate}%</div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">Конверсия</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Детальная информация о переходах -->
+            ${totalClicks > 0 ? `
+                <div style="margin-top: 12px; padding: 10px; background: var(--bg-secondary); border-radius: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                        📈 Детальная статистика:
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                        <span>Уникальность кликов:</span>
+                        <span><strong>${Math.round((uniqueClicks / totalClicks) * 100)}%</strong></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px;">
+                        <span>Эффективность ссылки:</span>
+                        <span><strong>${conversionRate}%</strong></span>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <!-- Дополнительная информация -->
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 12px;">
+                <div>Создана: ${new Date(link.created_at).toLocaleDateString('ru-RU')}</div>
+                <div>Код: ${link.code}</div>
+            </div>
+            
+            <!-- Владелец -->
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                Создал: ${link.creator_name || 'Администратор'}
+            </div>
+        </div>
+    `;
+    
+    return linkElement;
+}
+
+// Создать реферальную ссылку
+async function createReferralLink() {
+    const nameInput = document.getElementById('link-name');
+    const descriptionInput = document.getElementById('link-description');
+    const messageDiv = document.getElementById('link-form-message');
+    const submitBtn = document.getElementById('create-link-btn');
+    
+    const name = nameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!name) {
+        messageDiv.innerHTML = '<span style="color: var(--error);">Введите название ссылки!</span>';
+        return;
+    }
+    
+    if (!currentUser) {
+        messageDiv.innerHTML = '<span style="color: var(--error);">Пользователь не авторизован</span>';
+        return;
+    }
+    
+    // Показываем загрузку
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Создаем...';
+    messageDiv.innerHTML = '<span style="color: var(--warning);">Создаем ссылку...</span>';
+    
+    try {
+        const result = await makeRequest('/api/admin/links/create', {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id,
+                name: name,
+                description: description,
+                createdBy: currentUser.id
+            })
+        });
+        
+        if (result.success) {
+            messageDiv.innerHTML = `<span style="color: var(--success);">${result.message}</span>`;
+            
+            // Очищаем форму
+            nameInput.value = '';
+            descriptionInput.value = '';
+            
+            // Обновляем список ссылок
+            loadReferralLinksList();
+            
+            showNotification('✅ Ссылка успешно создана!', 'success');
+            
+        } else {
+            throw new Error(result.error || 'Неизвестная ошибка сервера');
+        }
+        
+    } catch (error) {
+        console.error('❌ Create link error:', error);
+        messageDiv.innerHTML = `<span style="color: var(--error);">Ошибка: ${error.message}</span>`;
+        showNotification('❌ Ошибка создания ссылки: ' + error.message, 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🔗 Создать ссылку';
+    }
+}
+
+// Копировать ссылку
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showNotification('✅ Ссылка скопирована в буфер обмена!', 'success');
+    }).catch(() => {
+        // Fallback для старых браузеров
+        const tempInput = document.createElement('input');
+        tempInput.value = url;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        showNotification('✅ Ссылка скопирована!', 'success');
+    });
+}
+
+// Удалить ссылку
+async function deleteReferralLink(code) {
+    if (!confirm('Удалить эту ссылку? Все данные о переходах будут потеряны.')) {
+        return;
+    }
+    
+    try {
+        const result = await makeRequest('/api/admin/links/delete', {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id,
+                code: code
+            })
+        });
+        
+        if (result.success) {
+            showNotification('✅ Ссылка удалена!', 'success');
+            loadReferralLinksList();
+        } else {
+            showNotification('❌ Ошибка: ' + result.error, 'error');
+        }
+    } catch (error) {
+        console.error('Delete link error:', error);
+        showNotification('❌ Ошибка удаления ссылки: ' + error.message, 'error');
+    }
+}
+
+// 🔧 ЭКСПОРТ ФУНКЦИЙ
+window.showAdminLinksSection = showAdminLinksSection;
+window.createReferralLink = createReferralLink;
+window.copyLink = copyLink;
+window.deleteReferralLink = deleteReferralLink;
+
+// 🔧 ЭКСПОРТ ФУНКЦИЙ
+window.showAdminLinksSection = showAdminLinksSection;
+window.createReferralLink = createReferralLink;
+window.copyLink = copyLink;
+window.deleteReferralLink = deleteReferralLink;
+
+// Сохранить настройки доступа (только для главного админа)
+async function saveLinkAccessSettings() {
+    if (parseInt(currentUser.id) !== ADMIN_ID) return;
+    
+    const allowAdmins = document.getElementById('allow-admins-links').checked;
+    
+    try {
+        const result = await makeRequest('/api/admin/links/settings', {
+            method: 'POST',
+            body: JSON.stringify({
+                adminId: currentUser.id,
+                allowAdminsLinks: allowAdmins
+            })
+        });
+        
+        if (result.success) {
+            showNotification('✅ Настройки сохранены!', 'success');
+        }
+    } catch (error) {
+        console.error('Save settings error:', error);
+        showNotification('❌ Ошибка сохранения настроек', 'error');
+    }
+}
+
+
+
+// 🔧 ЭКСПОРТ ФУНКЦИЙ
+window.showAdminLinksSection = showAdminLinksSection;
+window.createReferralLink = createReferralLink;
+window.copyLink = copyLink;
+window.deleteReferralLink = deleteReferralLink;
+window.saveLinkAccessSettings = saveLinkAccessSettings;
+// В функции initAdminInputHandlers добавьте:
+const allowAdminsCheckbox = document.getElementById('allow-admins-links');
+if (allowAdminsCheckbox) {
+    allowAdminsCheckbox.addEventListener('change', saveLinkAccessSettings);
+}
 // Обновите функцию показа секции оплат
 function showAdminPaymentsSection() {
     showAdminSection('payments');
@@ -14214,17 +15567,17 @@ async function updateAdminPermissions(adminId, permission, enabled) {
         showNotification('Ошибка обновления прав доступа', 'error');
     }
 }
+// В функции setupAdminPanel добавьте кнопку для ссылок
 function setupAdminPanel() {
     if (!currentUser) return;
     
-    const isMainAdmin = parseInt(currentUser.id) === ADMIN_ID;
-    const adminsBtn = document.getElementById('admins-btn');
-    
-    if (adminsBtn) {
-        adminsBtn.style.display = isMainAdmin ? 'block' : 'none';
+    const adminButtons = document.querySelector('.admin-buttons');
+    if (adminButtons) {
+        // Добавляем кнопку для управления ссылками
+        adminButtons.innerHTML += `
+            <button class="admin-btn" onclick="showAdminLinksSection()">🔗 Ссылки</button>
+        `;
     }
-    
-    console.log('✅ Admin panel setup complete');
 }
 
 
