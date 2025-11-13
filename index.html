@@ -5,20 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LinkGold - Платформа для заработка</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Добавьте эти мета-теги для производительности -->
-<meta name="theme-color" content="#050510">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-
-<!-- Предзагрузка критических ресурсов -->
-<link rel="preconnect" href="https://telegram.org">
-<link rel="dns-prefetch" href="https://telegram.org">
-
-<!-- Предзагрузка основных изображений -->
-<link rel="preload" href="IMG_4397.png" as="image">
-<link rel="preload" href="curved-stack-money-icon-3d-illustration.png" as="image">
-
 
     <!-- Подключаем CSS файлы -->
     <link rel="stylesheet" href="main.css">
@@ -28,66 +14,6 @@
 
     <!-- Оставляем критически важные стили inline для быстрой загрузки -->
     <style>
-        /* Добавьте эти стили в ваш основной CSS */
-* {
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    box-sizing: border-box;
-}
-
-html {
-    scroll-behavior: smooth;
-}
-
-body {
-    /* Улучшенная производительность */
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeSpeed;
-}
-
-/* Оптимизированные анимации */
-.fade-in {
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.fade-in.loaded {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* Упрощенные анимации для слабых устройств */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Оптимизированные карточки */
-.card, .task-card {
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-}
-
-/* Улучшенная прокрутка */
-.tasks-grid, .modal-content {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-}
-
-
-
-
         /* Критические стили для первоначальной отрисовки */
         :root {
             --bg-primary: #050510;
@@ -1252,9 +1178,6 @@ body {
 
 
     <script>
-
-
-
         // Ждем загрузки всех стилей
         window.addEventListener('load', function() {
             document.querySelector('.main-content').classList.add('loaded');
