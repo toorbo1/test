@@ -6,56 +6,7 @@
     <title>LinkGold - Платформа для заработка</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Подключаем CSS файлы -->
-    <link rel="stylesheet" href="main.css">
-    <link rel="stylesheet" href="components.css">
-    <link rel="stylesheet" href="animations.css">
-    <link rel="stylesheet" href="mobile.css">
 
-    <!-- Оставляем критически важные стили inline для быстрой загрузки -->
-    <style>
-        /* Критические стили для первоначальной отрисовки */
-        :root {
-            --bg-primary: #050510;
-            --bg-secondary: #0a0a1a;
-            --text-primary: #ffffff;
-            --text-secondary: #8b9bda;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --card-bg: #0f0f23;
-            --border: #1a1a3a;
-            --shadow: rgba(99, 102, 241, 0.1);
-            --nav-bg: rgba(15, 15, 35, 0.85);
-            --gold: #ffd700;
-            --gold-gradient: linear-gradient(135deg, #ffd700, #ffb700 );
-            --purple-gradient: linear-gradient(135deg, #8b5cf6, #7c3aed);
-            --blue-gradient: linear-gradient(135deg, #3b82f6, #2563eb);
-            --teal-gradient: linear-gradient(135deg, #0ea5e9, #0369a1);
-            --success: #10b981;
-            --error: #ef4444;
-            --warning: #f59e0b;
-        }
-
-        /* Базовые стили для предотвращения FOUC */
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
-            overflow-x: hidden;
-        }
-
-        /* Скрываем контент до загрузки стилей */
-        .main-content {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .main-content.loaded {
-            opacity: 1;
-        }
-    </style>
 </head>
 <body>
 
