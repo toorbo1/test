@@ -1,0 +1,1175 @@
+/* mobile.css */
+/* 🔧 ФИКСЫ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ */
+@media (max-width: 768px) {
+    * {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+    }
+    
+    .card, .task-card {
+        backdrop-filter: none !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    }
+}
+
+/* Отключите сложные эффекты на мобильных */
+@media (max-width: 768px) {
+    .card, .task-card, .modal-content {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background: rgba(25, 25, 50, 0.95);
+    border-radius: 16px;
+    padding: 6px 8px; /* Уменьшили padding */
+    display: flex;
+    justify-content: space-around;
+    box-shadow: 0 -6px 25px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    z-index: 1000;
+    backdrop-filter: blur(20px);
+    height: 65px; /* Уменьшили высоту */
+}
+
+.nav-item {
+    text-align: center;
+    cursor: pointer;
+    padding: 4px 6px; /* Уменьшили padding */
+    border-radius: 12px;
+    flex: 1;
+    opacity: 0.7;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: auto; /* Убрали фиксированную высоту */
+    border: 1px solid transparent;
+    gap: 2px; /* Уменьшили расстояние между элементами */
+}
+
+.nav-icon {
+    font-size: 18px;
+    margin-bottom: 1px; /* Уменьшили отступ снизу */
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px; /* Фиксированная высота для иконок */
+}
+
+.nav-icon img {
+    width: 40px; /* Увеличил размер картинок */
+    height: 40px;
+    object-fit: contain;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.nav-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    line-height: 2; /* Уменьшили межстрочный интервал */
+}
+
+.nav-item.active {
+    background: var(--accent);
+    opacity: 1;
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nav-item.active .nav-icon,
+.nav-item.active .nav-label {
+    color: white;
+}
+
+.nav-item.active .nav-icon img {
+    opacity: 1;
+    filter: none;
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 360px) {
+    .bottom-nav {
+        height: 60px;
+        padding: 4px 6px;
+    }
+    
+    .nav-item {
+        padding: 3px 4px;
+    }
+    
+    .nav-icon img {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .nav-label {
+        font-size: 9px ;
+    }
+}
+
+/* Исправляем позиционирование элементов в карточке задания */
+.task-card {
+    position: relative;
+    overflow: visible !important;
+}
+
+.task-availability {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--accent);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    max-width: 80px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 10px;
+    position: relative;
+    z-index: 5;
+}
+
+.task-title {
+    flex: 1;
+    min-width: 0;
+    margin-right: 30px; /* Оставляем место для блока "осталось" */
+}
+
+.task-price {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    background: var(--gold-gradient) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    z-index: 5;
+    position: relative;
+}
+
+/* Альтернативное решение - перемещаем блок "осталось" */
+.task-card-with-image .task-availability {
+    top: 48px; /* Под изображением */
+    right:65px;
+    background: rgba(82, 48, 255, 0.7);
+    backdrop-filter: blur(10px);
+}
+
+/* Для мобильных устройств */
+@media (max-width: 480px) {
+    .task-availability {
+        top: 8px;
+        right: 8px;
+        font-size: 9px;
+        padding: 3px 6px;
+        max-width: 70px;
+    }
+    
+    .task-title {
+        margin-right: 50px;
+    }
+}
+
+/* 🔧 ЗАГОЛОВОК И ЦЕНА */
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    gap: 10px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.task-title {
+    font-size: 15px !important;
+    line-height: 1.3 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Категория */
+.task-category {
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+    padding: 4px 8px;
+    border-radius: 10px;
+    display: inline-block;
+    font-weight: 600;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    flex-shrink: 0;
+}
+
+.task-price {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    background: var(--gold-gradient) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    margin-left: 10px;
+}
+
+/* Мета-информация */
+.task-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.task-description {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    color: var(--text-secondary) !important;
+    margin-bottom: 12px !important;
+}
+
+/* Плавное ограничение текста с кнопкой "Читать далее" */
+.task-description.collapsed {
+    max-height: 50px;
+    overflow: hidden;
+}
+
+.task-description.collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 25px;
+    background: linear-gradient(transparent, var(--card-bg));
+    pointer-events: none;
+}
+
+.read-more-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+/* Футер */
+.task-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    flex-shrink: 0;
+    width: 100%;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Время */
+.task-time {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.task-time::before {
+    content: '⏱️';
+    font-size: 12px;
+}
+
+/* Исправляем отображение кнопок */
+.task-btn {
+    background: var(--accent) !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 14px !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25) !important;
+    display: inline-block !important;
+}
+
+.task-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.task-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+}
+
+.task-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
+/* Индикатор доступности */
+.task-availability {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--purple-gradient);
+    color: white;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    z-index: 2;
+}
+
+/* 🔧 АНИМАЦИЯ ПОЯВЛЕНИЯ */
+.task-card {
+    animation: taskCardAppear 0.5s ease-out;
+}
+
+/* 🔧 СТИЛИ ДЛЯ РАЗНЫХ СТАТУСОВ */
+.task-card.completed {
+    border-left: 3px solid var(--success);
+    background: linear-gradient(135deg, var(--card-bg), rgba(16, 185, 129, 0.05));
+}
+
+.task-card.pending {
+    border-left: 3px solid var(--warning);
+    background: linear-gradient(135deg, var(--card-bg), rgba(245, 158, 11, 0.05));
+}
+
+.task-card.rejected {
+    border-left: 3px solid var(--error);
+    background: linear-gradient(135deg, var(--card-bg), rgba(239, 68, 68, 0.05));
+}
+
+/* 🔧 ИНДИКАТОР ПРОГРЕССА */
+.task-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.task-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.task-progress-text {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* Сложность */
+.task-difficulty {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.task-difficulty.легкая {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.task-difficulty.средняя {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.task-difficulty.сложная {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.task-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-status.completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.task-status.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Стили для улучшенного интерфейса проверки */
+.verification-modal-content {
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.screenshot-error-placeholder {
+    background: #f5f5f5;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    color: #666;
+}
+
+.retry-button {
+    background: #ff9800;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.retry-button:hover {
+    background: #f57c00;
+}
+
+.emergency-approve {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.emergency-approve:hover {
+    background: linear-gradient(45deg, #ff5252, #e84118);
+}
+
+/* Стили для генератора ссылок */
+.link-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.link-stat {
+    text-align: center;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.link-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.link-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.copy-btn:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+}
+
+.verification-modal-content {
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.verification-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border-left: 4px solid var(--accent);
+}
+
+.verification-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--purple-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.verification-user-name {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.verification-task-title {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.verification-price {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gold);
+    margin-left: auto;
+}
+
+.verification-screenshot {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.verification-modal-screenshot {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.verification-item {
+    transition: all 0.3s ease;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: var(--card-bg);
+    cursor: pointer;
+}
+
+.verification-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: var(--accent);
+}
+
+.verification-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--purple-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Стили для поиска в админке */
+.admin-search-container {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.admin-search-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px 12px 45px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.admin-search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+}
+
+.admin-search-results {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.admin-search-clear {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-search-clear:hover {
+    color: var(--error);
+}
+
+.admin-task-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+}
+
+.admin-task-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.admin-task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.admin-task-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.admin-task-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-task-delete {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.admin-task-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.3s ease;
+}
+
+.copy-btn:hover {
+    background: var(--accent-dark);
+}
+
+.no-tasks {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+/* mobile.css - продолжение */
+/* Стили для области загрузки изображения */
+.image-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 16px;
+}
+
+.image-upload-area:hover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.05);
+    transform: translateY(-2px);
+}
+
+.image-upload-area.dragover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+    transform: scale(1.02);
+}
+
+.upload-placeholder {
+    color: var(--text-secondary);
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.upload-placeholder i {
+    font-size: 48px;
+    margin-bottom: 12px;
+    display: block;
+    color: var(--accent);
+}
+
+/* Анимация загрузки */
+.upload-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+    display: none;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* Стили для сетки заданий с изображениями */
+.tasks-grid-with-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Стили для изображений в карточках заданий */
+.task-card-with-image {
+    position: relative;
+    overflow: hidden;
+}
+
+.task-image {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 12px 12px 0 0;
+    margin-bottom: 12px;
+}
+
+.task-content {
+    padding: 0 12px 12px 12px;
+}
+
+/* Адаптивные стили для изображений */
+@media (max-width: 480px) {
+    .task-image {
+        height: 140px;
+    }
+    
+    .tasks-grid-with-images {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .image-upload-area {
+        padding: 20px;
+    }
+    
+    .upload-placeholder i {
+        font-size: 36px;
+    }
+}
+
+/* Стили для превью изображений */
+.image-preview-container {
+    position: relative;
+    display: inline-block;
+    margin: 8px;
+}
+
+.image-preview {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+}
+
+.remove-image-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--error);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Стили для загрузки нескольких изображений */
+.multiple-images-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+/* Оптимизация для медленных соединений */
+.low-bandwidth-mode .task-image {
+    display: none;
+}
+
+.low-bandwidth-mode .image-upload-area {
+    min-height: 120px;
+}
+
+/* Стили для сжатия изображений */
+.compression-info {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 8px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.compression-progress {
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.compression-progress-bar {
+    height: 100%;
+    background: var(--success);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* Стили для ошибок загрузки */
+.upload-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 8px 0;
+    color: var(--error);
+    font-size: 12px;
+}
+
+.upload-retry-btn {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 6px;
+}
+
+/* Адаптивные стили для модальных окон */
+@media (max-width: 480px) {
+    .modal-content {
+        width: 95%;
+        margin: 10px;
+        padding: 16px;
+    }
+    
+    .verification-modal-content {
+        width: 95%;
+        padding: 16px;
+    }
+    
+    .task-modal-content {
+        width: 95%;
+        padding: 16px;
+    }
+    
+    .confirmation-modal-content {
+        width: 95%;
+        padding: 16px;
+    }
+}
+
+/* Стили для touch-устройств */
+@media (hover: none) and (pointer: coarse) {
+    .task-card:hover,
+    .card:hover,
+    .btn:hover,
+    .nav-item:hover {
+        transform: none;
+    }
+    
+    .task-card:active,
+    .card:active,
+    .btn:active,
+    .nav-item:active {
+        transform: scale(0.98);
+    }
+}
+
+/* Улучшения для iOS Safari */
+@supports (-webkit-touch-callout: none) {
+    .bottom-nav {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+    
+    body {
+        padding-bottom: calc(100px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Стили для устройств с маленькой высотой экрана */
+@media (max-height: 600px) {
+    .modal-content {
+        max-height: 85vh;
+    }
+    
+    .verification-modal-content {
+        max-height: 85vh;
+    }
+    
+    .chat-messages {
+        max-height: calc(100vh - 140px);
+    }
+}
+
+/* Оптимизация для landscape режима */
+@media (max-width: 768px) and (orientation: landscape) {
+    .bottom-nav {
+        height: 55px;
+        padding: 4px 6px;
+    }
+    
+    .nav-icon {
+        font-size: 16px;
+        margin-bottom: 0;
+    }
+    
+    .nav-label {
+        font-size: 9px;
+    }
+    
+    .nav-icon img {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* Стили для очень старых устройств */
+@media (max-width: 320px) {
+    body {
+        padding: 4px;
+        padding-bottom: 70px;
+    }
+    
+    .card, .task-card {
+        padding: 10px;
+    }
+    
+    .stats-grid {
+        gap: 6px;
+    }
+    
+    .stat-card {
+        padding: 10px;
+    }
+    
+    .bottom-nav {
+        left: 4px;
+        right: 4px;
+        bottom: 4px;
+    }
+}
+
+/* Поддержка темной темы системного уровня */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-primary: #050510;
+        --bg-secondary: #0a0a1a;
+        --text-primary: #ffffff;
+        --text-secondary: #8b9bda;
+    }
+}
+
+/* Анимации для жестов */
+.swipe-indicator {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    opacity: 0.7;
+    animation: swipePulse 2s infinite;
+}
+
+@keyframes swipePulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+}
+
+/* Стили для pull-to-refresh */
+.pull-to-refresh {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-secondary);
+}
+
+.refresh-spinner {
+    font-size: 20px;
+    margin-bottom: 8px;
+    animation: spin 1s linear infinite;
+}
+
+/* Оптимизация производительности для анимаций */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Стили для высокопиксельных дисплеев */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .task-image {
+        image-rendering: -webkit-optimize-contrast;
+    }
+}
+
+/* Стили для печати */
+@media print {
+    .bottom-nav,
+    .modal,
+    .chat-modal {
+        display: none !important;
+    }
+    
+    body {
+        background: white;
+        color: black;
+        padding: 0;
+    }
+    
+    .card, .task-card {
+        background: white;
+        border: 1px solid #ccc;
+        box-shadow: none;
+    }
+}
